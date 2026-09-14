@@ -1,8 +1,11 @@
-# Environment & Secrets
+# Environment & Secrets — NEVER commit .env files with real keys
 .env
 .env.*
 !.env.example
 *.env
+
+# Docker
+.docker/
 
 # Python
 __pycache__/

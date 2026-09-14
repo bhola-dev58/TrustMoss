@@ -1,0 +1,71 @@
+
+# ═══════════════════════════════════════════════════════════
+
+#  TrustMoss — Docker Compose
+#  Services: api (FastAPI) + web (Vite/Nginx)
+#  Usage:
+#    docker compose up --build          # first run (builds images)
+#    docker compose up -d               # detached mode
+#    docker compose down                # stop & remove containers
+#    docker compose logs -f api         # tail API logs
+# ═══════════════════════════════════════════════════════════
+
+services:
+
+  # ─────────────────────────────────────────────
+  # TrustMoss FastAPI Backend
+  # ─────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: runtime
+    image: trustmoss-api:latest
+    container_name: trustmoss-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    env_file:
+      - ./apps/api/.env
+    environment:
+      # Override any env var here without touching .env
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      # Hot-reload in dev: mount source (override in prod)
+      - ./apps/api:/app:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - trustmoss-net
+
+  # ─────────────────────────────────────────────
+  # TrustMoss React/Vite Frontend
+  # ─────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: runtime
+    image: trustmoss-web:latest
+    container_name: trustmoss-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    networks:
+      - trustmoss-net
+
+# ─────────────────────────────────────────────
+# Shared internal network
+# ─────────────────────────────────────────────
+networks:
+  trustmoss-net:
+    driver: bridge
