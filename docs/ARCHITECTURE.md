@@ -1,222 +1,196 @@
-# Architecture: TrustMoss
+# TrustMoss — Enterprise Architecture Specification
 
-## High-level flow
+> **Track:** Agent Reliability, Security & Evaluation  
+> **Challenge:** YC Fall 2026 x Moss: Zero Latency Builder Sprint  
+> **Repository:** [https://github.com/bhola-dev58/TrustMoss](https://github.com/bhola-dev58/TrustMoss)
 
-```
-                              AgentGuard
-                                  │
-                 ┌────────────────┼────────────────┐
-                 ▼                ▼                ▼
-              Web App           API             Agent
-           React + Vite     FastAPI /query    Python AI
-                 │                │                │
-                 │                │                ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 1         │
-                 │                │        │ Moss Retrieval   │
-                 │                │        │                 │
-                 │                │        │ Top-k Context   │
-                 │                │        │ Relevance Score │
-                 │                │        │ Retrieval Time  │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                │                 ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 2         │
-                 │                │        │ Context          │
-                 │                │        │ Relevance Check  │
-                 │                │        │                 │
-                 │                │        │ PASS / WARN      │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                │                 ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 3         │
-                 │                │        │ LLM Generation  │
-                 │                │        │                 │
-                 │                │        │ Context + Query │
-                 │                │        │ → Answer        │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                │                 ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 4         │
-                 │                │        │ Groundedness    │
-                 │                │        │ Check            │
-                 │                │        │                 │
-                 │                │        │ Answer ↔ Context│
-                 │                │        │ → Grounding     │
-                 │                │        │   Score         │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                │                 ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 5         │
-                 │                │        │ PII / Leak Scan │
-                 │                │        │                 │
-                 │                │        │ Sensitive Data  │
-                 │                │        │ Detection       │
-                 │                │        │ → REDACT/BLOCK  │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                │                 ▼
-                 │                │        ┌─────────────────┐
-                 │                │        │ Stage 6         │
-                 │                │        │ Trust Aggregator │
-                 │                │        │                 │
-                 │                │        │ Relevance       │
-                 │                │        │ Grounding       │
-                 │                │        │ Safety          │
-                 │                │        │ Latency         │
-                 │                │        │        ↓        │
-                 │                │        │ PASS / WARN /   │
-                 │                │        │ FAIL + Score    │
-                 │                │        └────────┬────────┘
-                 │                │                 │
-                 │                ◄─────────────────┘
-                 │                │
-                 │                ▼
-                 │        Response + Evaluation
-                 │        + Trust Score + Trace
-                 │                │
-                 ◄────────────────┘
-                 │
-                 ▼
-        ┌──────────────────────────┐
-        │ AgentGuard Dashboard     │
-        │                          │
-        │ • AI Response            │
-        │ • Trust Badge            │
-        │ • Context Sources        │
-        │ • Relevance Score        │
-        │ • Grounding Score        │
-        │ • Safety Status          │
-        │ • Retrieval Latency      │
-        │ • LLM Latency            │
-        │ • Evaluation Trace       │
-        └──────────────────────────┘
-```
+---
 
+## 1. System Overview & Executive Summary
 
-The clean high-level version for your PRD
-AgentGuard
-│
-├── Web
-│   └── React + Vite
-│
-├── API
-│   └── FastAPI
-│
-└── Agent
-    ├── Moss Retrieval
-    ├── Context Relevance
-    ├── LLM Generation
-    ├── Groundedness Evaluation
-    ├── PII / Leak Detection
-    └── Trust Score Aggregation
+**TrustMoss** is a real-time, closed-loop trust and reliability gateway designed to wrap LLM-powered agents in a verifiable safety fabric. Using **Moss** as the high-speed contextual retrieval engine, TrustMoss continuously evaluates queries, context relevance, answer groundedness, and data privacy before any response reaches an end user.
 
+The architecture decouples the agent's reasoning from safety enforcement through two synchronized loops:
+1. **The Real-Time Trust Pipeline (Sync Loop):** Sub-millisecond and low-latency interception performing inbound guardrails, Moss semantic retrieval, pre-generation relevance filtering, LLM reasoning, post-generation groundedness evaluation, and tri-state circuit breaking.
+2. **The Knowledge Governance & HITL Pipeline (Async Loop):** Continuous telemetry streaming, automated drift alerting, human-in-the-loop (HITL) audit routing, and immutable knowledge base version control with atomic rollback capability.
 
-## Component breakdown
+---
 
-### 1. Moss Retrieval Client
-- Wraps Moss API calls
-- Input: user query
-- Output: list of context chunks, each with a relevance/similarity score, plus retrieval latency
-- This is the piece you want to visibly show is fast in your demo, log its latency separately from everything else
-
-### 2. Guardrail Validator (core of the project)
-Three independent checks, each returns `{passed: bool, score: float, reason: str}`:
-
-**a. Context Relevance Check**
-- Runs right after retrieval, before the LLM call
-- Takes Moss's relevance scores for retrieved chunks
-- If the top score is below a threshold (e.g. 0.6), flag as low relevance
-- Purpose: catch cases where the knowledge base has nothing useful, so you don't let the LLM guess
-
-**b. Groundedness Check**
-- Runs after the LLM generates an answer
-- Embed the answer and embed the retrieved context (use a fast embedding model)
-- Compute cosine similarity between them
-- If similarity is low, the LLM likely drifted or hallucinated beyond what was retrieved
-- Purpose: this is your main "reliability" story, prove the answer is actually grounded in retrieved data, not made up
-
-**c. PII / Leak Scan**
-- Simple regex-based scan on the final answer text
-- Patterns: email, phone number, credit card-like numbers, API key patterns, SSN-like patterns
-- If matched, flag and optionally redact before returning
-- Purpose: security angle, catch accidental leaks before they reach the user
-
-### 3. Latency Tracer
-- Wrap each stage (Moss retrieval, relevance check, LLM call, groundedness check, PII scan) with a timer
-- Store per-query: `{stage: name, duration_ms: X}` for all 5 stages
-- Return this array alongside the response so the frontend can render a simple timeline bar
-- This is what makes Moss's speed visible and provable, not just claimed
-
-### 4. Trust Score Aggregator
-- Simple weighted logic, not a model:
-  - All 3 checks pass → **PASS** (green)
-  - 1 check fails/warns → **WARN** (yellow)
-  - 2+ checks fail, or PII leak detected → **FAIL** (red, response withheld or redacted)
-- Returns the score plus a short human-readable reason ("Answer didn't closely match retrieved context")
-
-### 5. Backend API (FastAPI)
-- `POST /query` — main endpoint, runs the full pipeline, returns answer + trust data + latency trace
-- `GET /history` — returns session's past queries and their trust results (for the demo history panel)
-
-### 6. Frontend (simple chat UI)
-- Chat input + message list
-- Each agent response shows: answer text, trust badge (color + label), expandable "why" section, latency trace mini-bar
-- Sidebar or bottom panel: session history list
-
-## Data flow for a single query (concrete example)
-
-1. User sends: "What's our refund policy for digital products?"
-2. Backend calls Moss → gets 3 chunks about refund policy, top score 0.89, latency 8ms
-3. Relevance check: 0.89 > 0.6 threshold → PASS
-4. LLM generates answer using those 3 chunks as context, latency 650ms
-5. Groundedness check: embed answer vs embed context → similarity 0.82 → PASS
-6. PII scan: no matches → PASS
-7. Trust Aggregator: all 3 pass → **PASS**, green badge
-8. Response returned with full latency trace: Moss 8ms, LLM 650ms, checks ~40ms combined
-9. Frontend renders answer + green badge + timeline showing Moss as the fast step
-
-## Tech choices and reasoning
-- **FastAPI**: fast to build with, async support fits well with calling Moss + LLM concurrently where possible
-- **Moss**: retrieval backbone, the whole point of the sprint
-- **Embeddings for groundedness**: use a lightweight/fast embedding model (don't add a slow model here, it defeats the purpose of proving speed)
-- **Regex for PII**: intentionally simple and fast, not an ML classifier, this is a 7-day sprint, not a production security product
-- **Frontend**: keep minimal, a clean single-page chat interface is enough, don't spend time on a full design system
-
-## Suggested repo structure
+## 2. High-Level Architecture Diagram
 
 ```
-trustmoss/
-├── backend/
-  |      |──.venv/
-│   ├── main.py                 # FastAPI app, /query and /history routes
-│   ├── moss_client.py          # Moss API wrapper
-│   ├── guardrails/
-│   │   ├── relevance.py
-│   │   ├── groundedness.py
-│   │   └── pii_scan.py
-│   ├── trust_score.py          # aggregator logic
-│   ├── tracer.py                # latency timing utility
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html / App.jsx
-│   ├── components/
-│   │   ├── ChatWindow
-│   │   ├── TrustBadge
-│   │   ├── LatencyTrace
-│   │   └── HistoryPanel
-│   └── package.json
-├── PRD.md
-├── ARCHITECTURE.md
-└── README.md
+                              ┌───────────────────────────────────┐
+                              │           TrustMoss UI            │
+                              │    (Next.js / React Dashboard)    │
+                              └─────────────────┬─────────────────┘
+                                                │ HTTPS / WSS
+                                                ▼
+                              ┌───────────────────────────────────┐
+                              │           Trust Gateway           │
+                              │       (FastAPI / Rate Limiter)    │
+                              └─────────────────┬─────────────────┘
+                                                │
+                 ┌──────────────────────────────┴──────────────────────────────┐
+                 ▼                                                             ▼
+     [INBOUND GUARDRAILS]                                             [OTel TELEMETRY]
+   - Prompt Injection Filter                                       - Microsecond hop tracing
+   - Inbound PII Redaction                                         - Triplet Audit Store
+                 │                                                             │
+                 ▼                                                             ▼
+     ┌──────────────────────┐        Context Chunks                ┌──────────────────────┐
+     │ Moss Retrieval Core  ├────────────────────────────┐         │   Continuous Eval    │
+     │ (Hybrid / Vector DB) │                            │         │     & RAG Triad      │
+     └──────────┬───────────┘                            │         └──────────────────────┘
+                │                                        ▼
+                │                          ┌───────────────────────────┐
+                │                          │ Pre-Gen Relevance Gate    │
+                │                          │ (Threshold Filter >= 0.7) │
+                │                          └─────────────┬─────────────┘
+                │                                        │ Clean Context
+                │                                        ▼
+                │                          ┌───────────────────────────┐
+                │                          │    Agent Orchestrator     │
+                │                          │   (Groq / Llama-3.1-8B)   │
+                │                          └─────────────┬─────────────┘
+                │                                        │ Generated Output
+                │                                        ▼
+                │                          ┌───────────────────────────┐
+                │                          │ Post-Gen Groundedness &   │
+                │                          │ Outbound PII Scanner      │
+                │                          └─────────────┬─────────────┘
+                │                                        │ Scores & Verdicts
+                ▼                                        ▼
+     ┌─────────────────────────────────────────────────────────────────┐
+     │              Trust Score Aggregator & Circuit Breaker           │
+     │      • PASS (Green): Relevance >= 0.7, Grounding >= 0.7, Safe   │
+     │      • WARN (Yellow): Single border metric; served with warning │
+     │      • FAIL (Red): Circuit tripped; return safe fallback        │
+     └─────────────────┬───────────────────────────────┬───────────────┘
+                       │ Flagged Failures              │ Clean Response
+                       ▼                               ▼
+     ┌──────────────────────────────────┐      ┌───────────────┐
+     │     HITL Review Queue &          │      │ End User /    │
+     │      Alerting Manager            │      │ Dashboard UI  │
+     └─────────────────┬────────────────┘      └───────────────┘
+                       │ Human Verified Corrections
+                       ▼
+     ┌──────────────────────────────────┐
+     │   Knowledge Ingestion Pipeline   │
+     │       (Celery / Async)           │
+     └─────────────────┬────────────────┘
+                       │ Staged Index Update
+                       ▼
+     ┌──────────────────────────────────┐
+     │    Version Manager & Sanity Gate │  Pre-Deployment Gating:
+     │   - Groundedness >= 0.85         │  - Atomic Blue/Green Switch
+     │   - Zero Security Regressions    │  - One-Click Rollback
+     │   - P95 Moss Latency < 50ms      │
+     └─────────────────┬────────────────┘
+                       ▼
+     ┌──────────────────────────────────┐
+     │   Index Version Registry         │
+     │   (Semantic Commit Hashes)       ├──────► Re-indexes Moss Retrieval Core
+     └──────────────────────────────────┘
 ```
 
-## Notes for building in for You
-- Build backend stages in isolation first (test `/query` with curl/Postman before touching frontend)
-- Get Moss retrieval + LLM call working end-to-end before adding any guardrail logic, that's your fallback demo if guardrails run out of time
-- Add guardrails one at a time, test each independently
-- Keep thresholds as config variables (not hardcoded) so you can tune them live if a demo query doesn't behave as expected
+---
+
+## 3. Subsystem Breakdown
+
+### 3.1. Edge & Client Layer
+- **TrustMoss UI:** Single-page dashboard built with React and Tailwind CSS. Features live chat, live Trust Badge (Green/Yellow/Red), per-hop latency waterfall bars, citation sources, and a dedicated HITL Review tab.
+- **Trust Gateway:** FastAPI backend providing authenticated routing, token bucket rate limiting, and distributed request context initialization.
+
+### 3.2. Guardrails & Safety Perimeter
+- **Inbound Security:** Intercepts prompts prior to retrieval to neutralize jailbreak vectors and redact sensitive personal identifiers (PII).
+- **Pre-Generation Relevance Gate:** Evaluates the cosine similarity and semantic overlap of chunks returned by Moss. Chunks scoring below threshold ($\tau = 0.60$) are discarded to prevent prompt poisoning.
+- **Post-Generation Safety:** Outbound regex and entity scanner ensuring zero credential leaks, API tokens, or PII in answers.
+
+### 3.3. Knowledge Core: Moss Retrieval Engine
+- Serves as the primary source of truth for the agent.
+- Leverages Moss ultra-fast vector search and hybrid sparse-dense indexing to fetch top-$k$ contextual evidence under **50ms**.
+- Emits explicit per-chunk relevance confidence scores and retrieval latency metrics.
+
+### 3.4. Agent Orchestrator & Reasoning Core
+- Powered by Groq-hosted `llama-3.1-8b-instant` for ultra-fast generation ($< 500\text{ ms}$).
+- Strictly prompts the LLM to restrict synthesis to the validated Moss context chunks.
+
+### 3.5. Reliability & Trust Evaluation Engine
+- **Groundedness Evaluator:** Compares the final response text against retrieved Moss context chunks using token overlap and natural language inference (NLI) heuristics.
+- **Tri-State Trust Aggregator:**
+  - **PASS (Score: 1.0):** All guardrails pass. Response delivered with green trust badge.
+  - **WARN (Score: 0.5):** Exactly 1 check indicates marginal context alignment. Response served with a prominent disclaimer badge.
+  - **FAIL (Score: 0.0):** 2+ checks fail OR any PII is detected. Circuit breaker trips immediately: suppresses raw model output and delivers a secure fallback message ("Unable to ground response safely in knowledge base").
+
+### 3.6. Operational Alerting & Observability
+- **OpenTelemetry Tracer:** Instruments every pipeline hop:
+  $$\Delta t_{\text{total}} = \Delta t_{\text{Moss}} + \Delta t_{\text{Guardrails}} + \Delta t_{\text{LLM}} + \Delta t_{\text{Eval}}$$
+- **Audit Store:** Immutable PostgreSQL/ClickHouse log capturing `{query_id, prompt, moss_context, answer, trust_verdict, latency_breakdown}`.
+- **Alerting Manager:** Triggers PagerDuty/Slack webhooks when the rolling 5-minute failure rate exceeds **5%** or average groundedness dips below **0.65**.
+
+### 3.7. Knowledge Governance & Version Control ("Git for Moss")
+- **HITL Review Queue:** Operations portal where flagged FAIL/WARN interactions are reviewed and corrected by domain experts.
+- **Knowledge Ingestion Pipeline:** Asynchronous worker pipeline that ingests approved corrections.
+- **Index Version Registry:** Records immutable snapshots of the Moss vector index, keyed by semantic commit hashes.
+- **Version Manager & Sanity Eval Gate:** Enforces production gates before activating new index versions:
+  1. Groundedness $\ge 0.85$ against golden benchmark queries.
+  2. Zero regression on security benchmarks.
+  3. P95 Moss retrieval latency $< 50\text{ ms}$.
+- **Zero-Downtime Rollback:** Instant rollback to previous known-good index commit in the event of upstream data contamination.
+
+---
+
+## 4. Execution Data Flow (Single Query Lifecycle)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as TrustMoss UI
+    participant GW as Trust Gateway
+    participant Guard as Guardrails Service
+    participant Moss as Moss Retrieval Engine
+    participant Agent as Agent Orchestrator
+    participant Eval as Evaluation Engine
+    participant Agg as Trust Aggregator & Circuit Breaker
+    participant OTel as Telemetry & Audit Store
+
+    User->>UI: Enter query
+    UI->>GW: POST /query
+    GW->>OTel: Start trace span
+    GW->>Guard: Inbound scan (PII & Prompt Injection)
+    Guard-->>GW: Sanitized query
+    GW->>Moss: Retrieve top-k context
+    Moss-->>GW: Context chunks + retrieval latency (e.g. 12ms)
+    GW->>Eval: Pre-generation relevance check
+    Eval-->>GW: Relevance passed
+    GW->>Agent: Generate response (Query + Context)
+    Agent-->>GW: Raw answer text
+    GW->>Eval: Groundedness check (Answer vs. Moss Context)
+    GW->>Guard: Outbound PII / Leak scan
+    Eval-->>Agg: Groundedness score (e.g. 0.91)
+    Guard-->>Agg: PII check (0 leaks)
+    Agg->>Agg: Evaluate Tri-State Rules (Verdict: PASS)
+    Agg-->>GW: Final payload + Trust Badge (Green)
+    GW->>OTel: Record complete trace triplet
+    GW-->>UI: Answer + Trust Badge + Latency Breakdown
+    UI-->>User: Render interactive response
+```
+
+---
+
+## 5. Technology Stack Summary
+
+| Subsystem | Technology | Purpose |
+|---|---|---|
+| Retrieval Engine | **Moss API / SDK** | Sub-50ms hybrid & vector context retrieval |
+| Agent LLM | **Groq (Llama-3.1-8B-Instant)** | High-throughput low-latency inference |
+| Backend API | **FastAPI (Python 3.11)** | Async REST gateway & pipeline orchestrator |
+| Frontend | **React + Vite / Next.js** | Live interactive trust & latency dashboard |
+| Tracing & Telemetry | **OpenTelemetry** | Granular per-hop latency tracing |
+| Data Governance | **Index Version Registry** | Semantic commit snapshots & atomic rollback |
+| Task Queue | **Celery / Redis** | Asynchronous HITL knowledge ingestion |
+
+---
+
+*TrustMoss — Built for the YC Fall 2026 x Moss Zero Latency Builder Sprint.*
