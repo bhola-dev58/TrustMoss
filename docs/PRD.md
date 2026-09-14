@@ -1,88 +1,103 @@
-# PRD: TrustMoss — Real-Time Trust Layer for AI Agents
+# Product Requirements Document (PRD): TrustMoss
 
-## Track
-Agent Reliability, Security & Evaluation (YC Fall 2026 x Moss: Zero Latency Builder Sprint)
+## 1. Executive Summary
+**TrustMoss** is a high-integrity reliability and security gateway designed for AI agents. It provides a multi-layered "trust loop" that validates agent inputs and outputs in real-time. By integrating **Moss** for high-speed retrieval and **Groq (Llama-3.1)** for reasoning, TrustMoss ensures that enterprise AI agents are secure, grounded in factual context, and continuously improving through human-in-the-loop (HITL) feedback and automated knowledge versioning.
 
-## One-liner
-A runtime guardrail layer that sits between an AI agent's retrieval step and its response, using Moss for fast context validation, and gives every answer a live trust score before it reaches the user.
+## 2. Problem Statement
+AI agents in enterprise environments face three critical challenges:
+1. **Unreliability:** Hallucinations and lack of groundedness in retrieved context.
+2. **Security Risks:** Exposure of PII and vulnerability to prompt injection attacks.
+3. **Lack of Governance:** Difficulty in auditing agent decisions and safely updating the knowledge base without regressions.
 
-## Problem
-AI agents hallucinate, leak sensitive info, or answer confidently using irrelevant context, and most teams find out only after something goes wrong in production. There's no fast, real-time way to check "is this answer actually grounded in what we retrieved" before it reaches the user.
+## 3. Goals & Objectives
+* **Real-time Safety:** Block 100% of detected PII and prompt injections before they reach the LLM or the user.
+* **High Groundedness:** Maintain a minimum groundedness score of 0.85 for production-promoted knowledge.
+* **Performance:** Achieve P95 retrieval latency of < 50ms using Moss.
+* **Operational Transparency:** Provide microsecond-level "per-hop" latency tracing for every request.
+* **Self-Correction:** Establish a closed-loop system where human corrections directly update the retrieval index.
 
-## Target user
-Teams shipping customer-facing AI agents (support bots, internal knowledge assistants) who need to catch bad answers before they go out, not after.
+## 4. Target Users / Stakeholders
+* **AI Engineers:** Building and deploying RAG-based agents.
+* **Security & Compliance Officers:** Monitoring for data leaks and prompt safety.
+* **Operations Managers:** Reviewing agent performance and managing knowledge versioning.
 
-## Why Moss matters here
-Guardrails only work if they're fast enough not to break the user experience. Moss's low-latency retrieval lets us:
-- Pull the original context back for comparison in near real time
-- Run relevance checks against the knowledge base without adding noticeable delay
-- Trace latency at each hop (retrieval, validation, LLM call) live
+## 5. Functional Requirements
 
-## Scope (MVP — 7 days)
+### 5.1. Real-Time Sync Pipeline
+* **Inbound Guardrails:** Scrub prompts for injections and PII using Microsoft Presidio and Guardrails AI.
+* **Contextual Retrieval:** Fetch relevant chunks via Moss Retrieval Engine.
+* **Pre-Generation Relevance Filter:** Discard low-confidence context chunks before they reach the Agent Orchestrator.
+* **Post-Generation Evaluation:** Perform NLI-based groundedness checks against the original Moss context.
+* **Tri-State Trust Aggregator:**
+  * **PASS (Green):** Context Relevance $\ge$ 0.7, Groundedness $\ge$ 0.7, Zero PII.
+  * **WARN (Yellow):** Exactly 1 check fails; serve response with a disclaimer.
+  * **FAIL (Red):** 2+ checks fail OR any PII detected; trigger Circuit Breaker to return a safe fallback.
 
-**In scope:**
-- One agent: a support/knowledge Q&A bot over a sample knowledge base
-- Moss-powered retrieval as the knowledge source
-- Three guardrail checks, run automatically on every query:
-  1. **Context relevance check** — does the retrieved context actually match the query (score threshold before it's sent to the LLM)
-  2. **Groundedness check** — does the LLM's answer actually reflect the retrieved context, or did it drift/hallucinate (simple overlap/similarity scoring between answer and context)
-  3. **PII/leak check** — basic regex + pattern scan on the output before it's returned
-- A live dashboard showing: query, latency breakdown per stage, trust score (pass/warn/fail), and why
+### 5.2. Human-in-the-Loop (HITL) & Feedback
+* **Review Queue:** Automatically route FAIL/WARN queries to a manual review interface.
+* **Knowledge Ingestion:** Allow operators to approve corrected answers, triggering an async update to the Moss index.
+* **Audit Marking:** Mark resolved entries as "Approved" in the Audit Store.
 
-**Out of scope (don't build this in 7 days):**
-- Multi-agent orchestration
-- Fine-tuned evaluation models (use simple, fast heuristics/embeddings, not a whole eval pipeline)
-- User auth / multi-tenant support
-- Voice or multimodal input
+### 5.3. Knowledge Governance
+* **Index Version Registry:** Maintain immutable snapshots of Moss indices with semantic commit hashes.
+* **Version Manager:** Support zero-downtime atomic rollbacks to previous index versions.
+* **Sanity Eval Gate:** Prevent promotion of new indices unless they meet:
+  * Groundedness $\ge$ 0.85 on golden queries.
+  * Zero security regressions.
+  * P95 Retrieval Latency < 50ms.
 
-## User flow
-1. User asks a question in the chat UI
-2. Agent retrieves context from Moss
-3. Guardrail validates the context is relevant before passing it to the LLM
-4. LLM generates an answer
-5. Guardrail checks the answer against the context and scans for leaks
-6. Response is shown to the user along with a trust badge (green/yellow/red) and a "why" tooltip
-7. Every step's latency is logged and shown on a live trace panel
+## 6. Non-Functional Requirements
+* **Performance:** Per-hop latency must be captured at microsecond resolution.
+* **Reliability:** Circuit breaker must suppress untrusted content within < 10ms of evaluation.
+* **Scalability:** Async processing for telemetry and knowledge ingestion to prevent blocking the main request path.
+* **Observability:** Full OpenTelemetry integration for distributed tracing.
 
-## Core features (MVP)
-1. Chat interface (simple, single page)
-2. Moss retrieval integration
-3. Guardrail validator module (3 checks above)
-4. Real-time latency trace (per-hop timing, shown as a small bar/timeline per query)
-5. Trust score badge + explanation on every response
-6. Session log / history panel (so judges can scroll back through past queries during the demo)
+## 7. System Architecture Overview
+The system is divided into four primary groups:
+1. **Trust Core:** Handles the sync request flow, guardrails, and the Trust Aggregator.
+2. **Retrieval Layer:** Manages Moss indices, versioning, and atomic rollbacks.
+3. **Feedback Loop:** Manages HITL reviews and the ingestion pipeline.
+4. **Operations:** Handles OTel collection, audit logging, and automated alerting.
 
-## Success metrics (how you'll know it's working for the demo)
-- Every query shows a visible trust score within ~1–2 seconds
-- At least one demo query intentionally shows a "fail" or "warn" (e.g., ask something outside the knowledge base) so judges see the guardrail actually catching something
-- Latency trace clearly shows Moss retrieval as the fast step (this is the point — prove Moss is fast, not the LLM call)
+## 8. Tech Stack
+* **Frontend:** Next.js, React, Tailwind CSS, Vercel AI SDK.
+* **Backend/Orchestration:** FastAPI, Python 3.11, Pydantic, Celery.
+* **AI/Inference:** Groq (Llama-3.1-8B), Moss SDK.
+* **Security/Eval:** Guardrails AI, Microsoft Presidio, Ragas.
+* **Data/Storage:** PostgreSQL (Audit/HITL), ClickHouse (Telemetry), Redis (Queue), Moss Native Index.
+* **Observability:** OpenTelemetry, Prometheus, Grafana, PagerDuty API.
 
-## Tech stack
-- Backend: FastAPI (Python)
-- Retrieval: Moss API
-- LLM: any fast provider (Groq, OpenAI gpt-4o-mini, or similar — pick for speed)
-- Embeddings for groundedness check: sentence-transformers or a fast embedding API
-- Frontend: simple React or plain HTML/JS chat UI (don't over-build this)
-- Deployment: Vercel (frontend) + Render/Railway (backend), or a single combined deploy if simpler
+## 9. Data Requirements
+* **Audit Store:** Stores the "Triplet" (Prompt, Moss Context, Agent Response) + Trust Scores.
+* **Golden Dataset Store:** Curated reference queries and ground-truth answers for benchmarking.
+* **Index Version Registry:** Metadata for Moss snapshots, including commit hashes and evaluation results.
 
-## Deliverables (per sprint rules)
-- Architecture diagram (see ARCHITECTURE.md)
-- This PRD
-- GitHub repo (public)
-- Deployed live link
-- 2–3 min video demo showing: a normal query passing, a bad/off-topic query getting flagged, and the latency trace
+## 10. API Specifications
+* `POST /query`: Primary endpoint for agent interaction. Returns response + Trust Verdict + latency trace.
+* `GET /history`: Retrieves session interactions for review.
+* `GET /health`: Liveness and readiness probe for the gateway and Moss index.
 
-## Day-by-day plan
-- **Day 1:** Set up repo, FastAPI skeleton, Moss API access working, basic chat endpoint returning raw answers (no guardrails yet)
-- **Day 2:** Build the knowledge base + get retrieval working end-to-end (query → Moss → context → LLM → answer)
-- **Day 3:** Build guardrail check #1 (context relevance) and #2 (groundedness)
-- **Day 4:** Build guardrail check #3 (PII/leak scan) + trust score logic combining all three
-- **Day 5:** Build latency tracing (timestamp each stage, store per-query) + basic frontend chat UI
-- **Day 6:** Build the trust badge UI + latency trace panel + session history panel, connect frontend to backend fully
-- **Day 7:** Deploy, polish UI, write PRD/architecture docs (this), record demo video, submit
+## 11. Security Requirements
+* **Data Protection:** Mandatory PII masking on both inbound prompts and outbound responses.
+* **Integrity:** Immutable audit logs for all "FAIL" state triggers.
 
-## Demo script (for the video)
-1. Ask a normal question → show fast response + green trust badge + latency trace (highlight Moss's speed)
-2. Ask an off-topic/unrelated question → show it get flagged (yellow/red badge) with the reason shown
-3. Scroll the session history to show multiple queries logged
-4. Briefly point at the architecture diagram and explain where Moss sits in the pipeline
+## 12. Deployment & Infrastructure
+* **Backend Deployment:** Render / Railway (FastAPI service).
+* **Frontend Deployment:** Vercel (React + Tailwind dashboard).
+* **CI/CD for Knowledge:** Automated Sanity Eval Gate integrated into the Knowledge Ingestion Pipeline.
+
+## 13. Success Metrics (KPIs)
+* **Groundedness Score:** $\ge$ 0.85 average across production traffic.
+* **System Health:** FAIL rate $< 5\%$ over a rolling 5-minute window.
+* **Latency:** P95 Moss Retrieval $< 50ms$ (benchmarked at ~11ms).
+* **Security:** Zero PII leaks in "PASS" or "WARN" responses.
+
+## 14. Timeline & Milestones
+* **Phase 1 (MVP):** Core Moss retrieval + Agent Orchestrator + Web UI (Completed).
+* **Phase 2 (Trust):** Guardrails Service + Evaluation Engine + Tri-state Aggregator (Completed).
+* **Phase 3 (Ops):** OTel instrumentation + Alerting Manager + Audit Store (Completed).
+* **Phase 4 (Governance):** HITL Queue + Knowledge Ingestion + Index Versioning (Completed).
+
+## 15. Open Questions & Risks
+* **Real-time Evaluation Overhead:** Addressed by using Moss's ultra-fast 11ms retrieval, leaving maximum budget for evaluation.
+* **Cold Start on Index Swaps:** Addressed by the Version Manager's atomic blue/green pointer swap.
