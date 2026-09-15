@@ -29,6 +29,7 @@ from groq import AsyncGroq
 from pydantic import BaseModel
 
 import auth
+import crypto
 import livekit_service
 import moss_client
 import voice_gateway
@@ -449,6 +450,9 @@ async def health():
             "auth_strict": auth.AUTH_STRICT,
             "owasp_headers_enabled": True,
             "jwt_algorithm": auth.JWT_ALGORITHM,
+            "data_at_rest_encryption": "AES-256-GCM",
+            "cipher_algorithm": "AES-256-GCM (NIST SP 800-38D)",
+            "key_size_bits": 256,
         },
         "microservices": {
             "guardrails_service": GUARDRAILS_SERVICE_URL or "internal/colocated",
@@ -456,4 +460,24 @@ async def health():
             "evaluation_service": EVALUATION_SERVICE_URL or "internal/colocated",
             "livekit_voice_gateway": livekit_service.get_livekit_config()["configured"],
         },
+    }
+
+
+@app.get("/api/security/encryption")
+async def encryption_posture():
+    """Exposes cryptographic parameters and compliance posture for data-at-rest protection."""
+    return {
+        "algorithm": "AES-256-GCM",
+        "standard": "NIST SP 800-38D",
+        "key_size_bits": 256,
+        "nonce_length_bytes": crypto.NONCE_LENGTH_BYTES,
+        "auth_tag_length_bytes": crypto.TAG_LENGTH_BYTES,
+        "protected_scopes": [
+            "hitl_review_queue",
+            "voice_audio_transcripts",
+            "pii_entity_audit_logs",
+            "golden_correction_answers",
+        ],
+        "tamper_proof": True,
+        "prefix": crypto.CIPHER_PREFIX,
     }

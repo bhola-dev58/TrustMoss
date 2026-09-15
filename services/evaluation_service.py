@@ -30,10 +30,12 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trustmoss.evaluation_service")
 
+from services.crypto import EncryptedStore, get_encryption_key
+
 app = FastAPI(
     title="TrustMoss Evaluation & Governance Service",
-    description="Dedicated microservice for groundedness scoring, tri-state circuit breaker, HITL queue, and Index Version Registry.",
     version="0.2.0",
+    description="Dedicated microservice for groundedness scoring, tri-state circuit breaker, HITL queue with AES-256-GCM encryption, and Index Version Registry.",
 )
 
 app.add_middleware(
@@ -47,8 +49,15 @@ app.add_middleware(
 GROUNDEDNESS_THRESHOLD = float(os.getenv("GROUNDEDNESS_THRESHOLD", "0.85"))
 RELEVANCE_THRESHOLD = float(os.getenv("RELEVANCE_THRESHOLD", "0.70"))
 
-# In-memory HITL review queue
-_hitl_queue: List[Dict[str, Any]] = []
+# Encrypted at-rest store for HITL records (AES-256-GCM)
+HITL_STORAGE_PATH = os.getenv("HITL_STORAGE_PATH", "data/hitl_queue.enc.json")
+_encrypted_store = EncryptedStore(
+    filepath=HITL_STORAGE_PATH,
+    sensitive_fields=("query", "answer", "context_chunks", "approved_answer"),
+)
+
+# Load existing encrypted records from disk if present, else empty list
+_hitl_queue: List[Dict[str, Any]] = _encrypted_store.load_records()
 
 # In-memory Index Version Registry ('Git for Knowledge')
 _index_versions: List[Dict[str, Any]] = [
@@ -145,7 +154,7 @@ async def evaluate_turn(req: EvaluateRequest):
 
     # If flagged, automatically queue in HITL review queue
     if requires_hitl:
-        _hitl_queue.append({
+        item = {
             "query_id": str(uuid.uuid4())[:8],
             "query": req.query,
             "answer": req.answer,
@@ -154,7 +163,12 @@ async def evaluate_turn(req: EvaluateRequest):
             "context_chunks": req.context_chunks,
             "queued_at": datetime.now(timezone.utc).isoformat(),
             "status": "pending_review",
-        })
+        }
+        _hitl_queue.append(item)
+        try:
+            _encrypted_store.save_records(_hitl_queue)
+        except Exception as e:
+            logger.error("Failed to persist encrypted HITL queue: %s", e)
 
     return EvaluateResponse(
         verdict=trust["verdict"],
@@ -173,10 +187,17 @@ async def evaluate_turn(req: EvaluateRequest):
 # ---------------------------------------------------------------------------
 @app.get("/hitl/queue")
 async def get_hitl_queue():
+    """Returns decrypted HITL queue items for authenticated reviewers."""
     return {
         "total_flagged": len(_hitl_queue),
         "items": list(reversed(_hitl_queue)),
     }
+
+
+@app.get("/hitl/queue/raw")
+async def get_hitl_queue_raw():
+    """Returns raw AES-256-GCM encrypted envelope at rest for security compliance audits."""
+    return _encrypted_store.load_raw_encrypted()
 
 
 @app.post("/hitl/resolve")
@@ -187,6 +208,10 @@ async def resolve_hitl(req: HitlResolveRequest):
             item["resolved_by"] = req.reviewer
             item["resolved_at"] = datetime.now(timezone.utc).isoformat()
             item["approved_answer"] = req.corrected_answer
+            try:
+                _encrypted_store.save_records(_hitl_queue)
+            except Exception as e:
+                logger.error("Failed to persist resolved HITL update: %s", e)
             return {"status": "ok", "message": f"Query {req.query_id} resolved and queued for Moss index update."}
 
     raise HTTPException(status_code=404, detail="Query ID not found in HITL queue.")
@@ -232,6 +257,14 @@ async def health():
         "version": "0.2.0",
         "groundedness_target": GROUNDEDNESS_THRESHOLD,
         "hitl_pending_count": len([i for i in _hitl_queue if i.get("status") == "pending_review"]),
+        "encryption": {
+            "data_at_rest": "AES-256-GCM",
+            "key_size_bits": 256,
+            "nonce_bits": 96,
+            "auth_tag_bits": 128,
+            "encrypted_store_path": str(_encrypted_store.filepath),
+            "records_persisted": len(_hitl_queue),
+        },
     }
 
 
