@@ -1,38 +1,49 @@
 # ─────────────────────────────────────────────
-# TrustMoss Web — Production-ready Dockerfile
-# Multi-stage: build with Node, serve with Nginx
+# TrustMoss Web — Next.js 14+ App Router Dockerfile
+# Multi-stage standalone output build
 # ─────────────────────────────────────────────
 
-# ── Stage 1: Node builder ─────────────────────
-FROM node:20-alpine AS builder
-
+# ── Stage 1: Install dependencies ─────────────
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies (layer-cached)
-COPY package.json package-lock.json ./
-RUN npm ci --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm install
 
-# Copy source and build
+# ── Stage 2: Build the Next.js application ────
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
 RUN npm run build
 
+# ── Stage 3: Production runner ────────────────
+FROM node:20-alpine AS runtime
+WORKDIR /app
 
-# ── Stage 2: Nginx static server ─────────────
-FROM nginx:1.27-alpine AS runtime
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-LABEL org.opencontainers.image.title="TrustMoss Web"
-LABEL org.opencontainers.image.description="TrustMoss Dashboard UI"
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Remove default nginx config; add custom SPA config
-RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy standalone build and static assets
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
+USER nextjs
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
