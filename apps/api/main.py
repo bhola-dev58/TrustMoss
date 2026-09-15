@@ -23,15 +23,17 @@ from datetime import datetime
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import AsyncGroq
 from pydantic import BaseModel
 
+import auth
 import livekit_service
 import moss_client
 import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
+from security_middleware import SecurityHeadersMiddleware
 from tracer import Tracer
 from trust_score import aggregate
 
@@ -131,12 +133,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# OWASP API Security Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS configuration
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://web:3000",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Tighten before production
+    allow_origins=CORS_ORIGINS if os.getenv("ENV") == "production" else ["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
 )
 
 
@@ -391,6 +406,37 @@ async def list_voice_sessions_endpoint():
 
 
 # ---------------------------------------------------------------------------
+# Auth Endpoints (JWT / OAuth2 & RBAC)
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/token", response_model=auth.TokenResponse)
+async def generate_token_endpoint(req: auth.TokenRequest):
+    """Issues authenticated JWT token for agent, reviewer, or admin roles."""
+    if req.role not in ["agent", "reviewer", "admin"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid role. Must be 'agent', 'reviewer', or 'admin'.",
+        )
+
+    token = auth.create_access_token(identity=req.client_id, role=req.role)
+    return auth.TokenResponse(
+        access_token=token,
+        role=req.role,
+        client_id=req.client_id,
+        expires_in_minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
+
+
+@app.get("/api/auth/me")
+async def get_current_user_endpoint(user: dict = Depends(auth.get_current_user)):
+    """Returns currently authenticated identity and assigned role."""
+    return {
+        "identity": user.get("sub"),
+        "role": user.get("role"),
+        "auth_mode": user.get("mode", "jwt_verified"),
+    }
+
+
+# ---------------------------------------------------------------------------
 # GET /health — liveness
 # ---------------------------------------------------------------------------
 @app.get("/health")
@@ -399,6 +445,11 @@ async def health():
         "service": "trustmoss-gateway",
         "status": "healthy",
         "version": "0.2.0",
+        "security": {
+            "auth_strict": auth.AUTH_STRICT,
+            "owasp_headers_enabled": True,
+            "jwt_algorithm": auth.JWT_ALGORITHM,
+        },
         "microservices": {
             "guardrails_service": GUARDRAILS_SERVICE_URL or "internal/colocated",
             "moss_service": MOSS_SERVICE_URL or "internal/colocated",
