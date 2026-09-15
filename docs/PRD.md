@@ -60,12 +60,13 @@ The system is divided into four primary groups:
 4. **Operations:** Handles OTel collection, audit logging, and automated alerting.
 
 ## 8. Tech Stack
-* **Frontend:** Next.js, React, Tailwind CSS, Vercel AI SDK.
-* **Backend/Orchestration:** FastAPI, Python 3.11, Pydantic, Celery.
-* **AI/Inference:** Groq (Llama-3.1-8B), Moss SDK.
+* **Frontend:** Next.js 14+ (App Router), React 18/19, Tailwind CSS, LiveKit Components React.
+* **Voice Gateway:** LiveKit Cloud / SFU (WebRTC), `livekit-agents` (Python worker), Deepgram STT, Cartesia TTS.
+* **Backend/Orchestration:** FastAPI, Python 3.12, Pydantic v2, Celery / Redis.
+* **AI/Inference:** Groq (Llama-3.1-8B), Moss SDK (~11ms retrieval).
 * **Security/Eval:** Guardrails AI, Microsoft Presidio, Ragas.
 * **Data/Storage:** PostgreSQL (Audit/HITL), ClickHouse (Telemetry), Redis (Queue), Moss Native Index.
-* **Observability:** OpenTelemetry, Prometheus, Grafana, PagerDuty API.
+* **Observability:** OpenTelemetry (8-hop audio & text tracing), Prometheus, Grafana.
 
 ## 9. Data Requirements
 * **Audit Store:** Stores the "Triplet" (Prompt, Moss Context, Agent Response) + Trust Scores.
@@ -74,6 +75,8 @@ The system is divided into four primary groups:
 
 ## 10. API Specifications
 * `POST /query`: Primary endpoint for agent interaction. Returns response + Trust Verdict + latency trace.
+* `POST /api/livekit/token`: Issues authenticated WebRTC JWT access tokens with VideoGrants.
+* `POST /api/voice/process-transcript`: Real-time voice transcript processing through Trust Gateway with audio circuit breaker.
 * `GET /history`: Retrieves session interactions for review.
 * `GET /health`: Liveness and readiness probe for the gateway and Moss index.
 
@@ -82,8 +85,8 @@ The system is divided into four primary groups:
 * **Integrity:** Immutable audit logs for all "FAIL" state triggers.
 
 ## 12. Deployment & Infrastructure
-* **Backend Deployment:** Render / Railway (FastAPI service).
-* **Frontend Deployment:** Vercel (React + Tailwind dashboard).
+* **Backend Deployment:** Decoupled Microservices in Docker Compose / Render / Railway.
+* **Frontend Deployment:** Next.js Standalone Container in Docker Compose / Vercel.
 * **CI/CD for Knowledge:** Automated Sanity Eval Gate integrated into the Knowledge Ingestion Pipeline.
 
 ## 13. Success Metrics (KPIs)

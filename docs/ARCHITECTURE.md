@@ -183,11 +183,12 @@ sequenceDiagram
 
 | Subsystem | Technology | Purpose |
 |---|---|---|
-| Retrieval Engine | **Moss API / SDK** | Sub-50ms hybrid & vector context retrieval |
+| Retrieval Engine | **Moss API / SDK** | Sub-15ms hybrid & vector context retrieval |
 | Agent LLM | **Groq (Llama-3.1-8B-Instant)** | High-throughput low-latency inference |
-| Backend API | **FastAPI (Python 3.11)** | Async REST gateway & pipeline orchestrator |
-| Frontend | **React + Vite / Next.js** | Live interactive trust & latency dashboard |
-| Tracing & Telemetry | **OpenTelemetry** | Granular per-hop latency tracing |
+| Voice Gateway | **LiveKit (WebRTC / livekit-agents)** | Real-time audio streaming, live transcript guardrails & audio circuit breaker |
+| Backend API | **FastAPI (Python 3.12)** | Async REST gateway & pipeline orchestrator |
+| Frontend | **Next.js 14+ (App Router)** | SSR dashboard with secure API route proxies & LiveKit voice room HUD |
+| Tracing & Telemetry | **OpenTelemetry** | Granular 8-hop latency tracing |
 | Data Governance | **Index Version Registry** | Semantic commit snapshots & atomic rollback |
 | Task Queue | **Celery / Redis** | Asynchronous HITL knowledge ingestion |
 

@@ -20,7 +20,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -28,7 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from groq import AsyncGroq
 from pydantic import BaseModel
 
+import livekit_service
 import moss_client
+import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
 from tracer import Tracer
 from trust_score import aggregate
@@ -41,6 +43,11 @@ logger = logging.getLogger(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
+# Microservice Topology URLs (empty = local colocated execution)
+GUARDRAILS_SERVICE_URL = os.getenv("GUARDRAILS_SERVICE_URL", "").rstrip("/")
+MOSS_SERVICE_URL = os.getenv("MOSS_SERVICE_URL", "").rstrip("/")
+EVALUATION_SERVICE_URL = os.getenv("EVALUATION_SERVICE_URL", "").rstrip("/")
+
 # In-memory session history (list of QueryResponse dicts)
 _session_history: List[dict] = []
 
@@ -48,6 +55,58 @@ _session_history: List[dict] = []
 # Groq client (module-level singleton)
 # ---------------------------------------------------------------------------
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Microservice Dispatch Helpers (HTTP with local fallback)
+# ---------------------------------------------------------------------------
+import httpx
+
+
+async def dispatch_retrieval(query: str, top_k: int = 3) -> dict:
+    if MOSS_SERVICE_URL:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(f"{MOSS_SERVICE_URL}/retrieve", json={"query": query, "top_k": top_k})
+                if res.status_code == 200:
+                    return res.json()
+        except Exception as e:
+            logger.warning("Moss microservice error (%s), falling back to local client.", e)
+    return await moss_client.retrieve(query, top_k=top_k)
+
+
+async def dispatch_evaluation(query: str, answer: str, context_chunks: list, top_score: float, pii_res: dict) -> dict:
+    if EVALUATION_SERVICE_URL:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(
+                    f"{EVALUATION_SERVICE_URL}/evaluate",
+                    json={
+                        "query": query,
+                        "answer": answer,
+                        "context_chunks": context_chunks,
+                        "top_score": top_score,
+                        "pii_passed": pii_res.get("passed", True),
+                        "pii_reason": pii_res.get("reason", ""),
+                    },
+                )
+                if res.status_code == 200:
+                    return res.json()
+        except Exception as e:
+            logger.warning("Evaluation microservice error (%s), falling back to local evaluator.", e)
+
+    rel_res = relevance.check(top_score)
+    ground_res = groundedness.check(answer, context_chunks)
+    trust_res = aggregate(rel_res, ground_res, pii_res)
+    return {
+        "verdict": trust_res["verdict"],
+        "color": trust_res["color"],
+        "score": trust_res["score"],
+        "reason": trust_res["reason"],
+        "groundedness": ground_res,
+        "relevance": rel_res,
+        "circuit_breaker_tripped": trust_res["verdict"] == "FAIL",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +160,23 @@ class QueryResponse(BaseModel):
     timestamp: str
 
 
+class LiveKitTokenRequest(BaseModel):
+    room_name: str
+    participant_identity: str
+    participant_name: Optional[str] = None
+    is_agent: bool = False
+    ttl_seconds: int = 3600
+
+
+class VoiceTurnRequest(BaseModel):
+    room_name: str
+    participant_identity: str
+    transcript: str
+    top_k: int = 3
+    webrtc_latency_ms: float = 12.0
+    stt_latency_ms: float = 45.0
+
+
 # ---------------------------------------------------------------------------
 # Helper: call Groq LLM
 # ---------------------------------------------------------------------------
@@ -151,10 +227,10 @@ async def query_endpoint(request: QueryRequest):
     # Stage 1: Moss retrieval
     # ------------------------------------------------------------------
     with tracer.stage("moss_retrieval"):
-        retrieval = await moss_client.retrieve(request.query, top_k=request.top_k)
+        retrieval = await dispatch_retrieval(request.query, top_k=request.top_k)
 
-    context_chunks = retrieval["chunks"]
-    top_score = retrieval["top_score"]
+    context_chunks = retrieval.get("chunks", [])
+    top_score = retrieval.get("top_score", 0.0)
 
     # ------------------------------------------------------------------
     # Stage 2: Relevance check (pre-LLM guardrail)
@@ -169,24 +245,32 @@ async def query_endpoint(request: QueryRequest):
         answer = await call_llm(request.query, context_chunks)
 
     # ------------------------------------------------------------------
-    # Stage 4: Groundedness check (stub in baseline)
-    # ------------------------------------------------------------------
-    with tracer.stage("groundedness_check"):
-        groundedness_result = groundedness.check(answer, context_chunks)
-
-    # ------------------------------------------------------------------
-    # Stage 5: PII scan (stub in baseline)
+    # Stage 4: Outbound PII scan
     # ------------------------------------------------------------------
     with tracer.stage("pii_scan"):
         pii_result = pii_scan.check(answer)
 
-    # Use the (possibly redacted) answer going forward
-    final_answer = pii_result["redacted_answer"]
+    final_answer = pii_result.get("redacted_answer", answer)
 
     # ------------------------------------------------------------------
-    # Stage 6: Trust score aggregation
+    # Stage 5: Evaluation & Trust Aggregation (Microservice / Local)
     # ------------------------------------------------------------------
-    trust = aggregate(relevance_result, groundedness_result, pii_result)
+    with tracer.stage("evaluation_and_trust"):
+        eval_result = await dispatch_evaluation(
+            query=request.query,
+            answer=final_answer,
+            context_chunks=context_chunks,
+            top_score=top_score,
+            pii_res=pii_result,
+        )
+
+    trust = {
+        "verdict": eval_result["verdict"],
+        "color": eval_result["color"],
+        "score": eval_result["score"],
+        "reason": eval_result["reason"],
+    }
+    groundedness_result = eval_result.get("groundedness", {})
 
     # ------------------------------------------------------------------
     # Build response
@@ -237,8 +321,88 @@ async def history_endpoint():
 
 
 # ---------------------------------------------------------------------------
+# LiveKit & Real-Time Voice Gateway Endpoints
+# ---------------------------------------------------------------------------
+@app.get("/api/livekit/config")
+async def livekit_config_endpoint():
+    """Returns public LiveKit gateway connection metadata."""
+    return livekit_service.get_livekit_config()
+
+
+@app.post("/api/livekit/token")
+async def livekit_token_endpoint(request: LiveKitTokenRequest):
+    """
+    Generate an authenticated WebRTC access token for a LiveKit room participant or AI agent.
+    """
+    try:
+        token = livekit_service.generate_token(
+            room_name=request.room_name,
+            participant_identity=request.participant_identity,
+            participant_name=request.participant_name,
+            is_agent=request.is_agent,
+            ttl_seconds=request.ttl_seconds,
+        )
+        return {
+            "token": token,
+            "room_name": request.room_name,
+            "participant": request.participant_identity,
+            "is_agent": request.is_agent,
+            "url": livekit_service.LIVEKIT_URL,
+        }
+    except Exception as e:
+        logger.error("Failed to generate LiveKit token: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/voice/process-transcript")
+async def process_voice_transcript_endpoint(request: VoiceTurnRequest):
+    """
+    Real-time LiveKit audio transcript reliability gateway.
+    Routes user speech through Trust Gateway and executes tri-state circuit breaker.
+    """
+    try:
+        result = await voice_gateway.process_voice_turn(
+            room_name=request.room_name,
+            participant_identity=request.participant_identity,
+            transcript=request.transcript,
+            top_k=request.top_k,
+            simulated_webrtc_ms=request.webrtc_latency_ms,
+            simulated_stt_ms=request.stt_latency_ms,
+        )
+        return result
+    except Exception as e:
+        logger.error("Error processing voice turn: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/voice/session/{room_name}")
+async def voice_session_endpoint(room_name: str):
+    """Retrieve telemetry and latency metrics for an active voice room."""
+    session = voice_gateway.get_voice_session(room_name)
+    if not session:
+        raise HTTPException(status_code=404, detail="Voice session not found.")
+    return session
+
+
+@app.get("/api/voice/sessions")
+async def list_voice_sessions_endpoint():
+    """List all active LiveKit voice rooms and their circuit breaker statistics."""
+    return {"sessions": voice_gateway.list_active_voice_sessions()}
+
+
+# ---------------------------------------------------------------------------
 # GET /health — liveness
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {
+        "service": "trustmoss-gateway",
+        "status": "healthy",
+        "version": "0.2.0",
+        "microservices": {
+            "guardrails_service": GUARDRAILS_SERVICE_URL or "internal/colocated",
+            "moss_service": MOSS_SERVICE_URL or "internal/colocated",
+            "evaluation_service": EVALUATION_SERVICE_URL or "internal/colocated",
+            "livekit_voice_gateway": livekit_service.get_livekit_config()["configured"],
+        },
+    }

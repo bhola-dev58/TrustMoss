@@ -1,71 +1,178 @@
-
 # ═══════════════════════════════════════════════════════════
-
-#  TrustMoss — Docker Compose
-#  Services: api (FastAPI) + web (Vite/Nginx)
-#  Usage:
-#    docker compose up --build          # first run (builds images)
-#    docker compose up -d               # detached mode
-#    docker compose down                # stop & remove containers
-#    docker compose logs -f api         # tail API logs
+#  TrustMoss — Decoupled Microservices Docker Compose
+#  Services:
+#    1. trustmoss-gateway       (Port 8000 - Ingress / Auth / Dispatch)
+#    2. guardrails-service      (Port 8001 - Inbound & Outbound Safety)
+#    3. moss-service            (Port 8002 - Moss Sub-15ms Retrieval)
+#    4. evaluation-service      (Port 8003 - Groundedness / Circuit Breaker / HITL / Registry)
+#    5. livekit-voice-agent     (Worker    - Autonomous WebRTC Voice Agent)
+#    6. trustmoss-web           (Port 3000 - Next.js 14+ App Router UI)
 # ═══════════════════════════════════════════════════════════
 
 services:
 
   # ─────────────────────────────────────────────
-  # TrustMoss FastAPI Backend
+  # 1. Guardrails Microservice (Inbound & Outbound Safety)
   # ─────────────────────────────────────────────
-  api:
+  guardrails-service:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-      target: runtime
-    image: trustmoss-api:latest
-    container_name: trustmoss-api
+      context: .
+      dockerfile: services/Dockerfile
+      target: guardrails
+    image: trustmoss-guardrails:latest
+    container_name: trustmoss-guardrails
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - GUARDRAILS_PORT=8001
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 2. Moss Retrieval Microservice (Sub-15ms Vector Store)
+  # ─────────────────────────────────────────────
+  moss-service:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      target: moss
+    image: trustmoss-moss-service:latest
+    container_name: trustmoss-moss-service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./apps/api/.env
+    environment:
+      - MOSS_SERVICE_PORT=8002
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 3. Evaluation & Governance Microservice (Circuit Breaker & HITL)
+  # ─────────────────────────────────────────────
+  evaluation-service:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      target: evaluation
+    image: trustmoss-evaluation:latest
+    container_name: trustmoss-evaluation
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      - EVALUATION_PORT=8003
+      - GROUNDEDNESS_THRESHOLD=${GROUNDEDNESS_THRESHOLD:-0.85}
+      - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:-0.70}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 4. Trust Gateway & Reverse Proxy (Ingress & Orchestrator)
+  # ─────────────────────────────────────────────
+  trustmoss-gateway:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      target: gateway
+    image: trustmoss-gateway:latest
+    container_name: trustmoss-gateway
     restart: unless-stopped
     ports:
       - "${API_PORT:-8000}:8000"
     env_file:
       - ./apps/api/.env
     environment:
-      # Override any env var here without touching .env
+      - GUARDRAILS_SERVICE_URL=http://guardrails-service:8001
+      - MOSS_SERVICE_URL=http://moss-service:8002
+      - EVALUATION_SERVICE_URL=http://evaluation-service:8003
       - LOG_LEVEL=${LOG_LEVEL:-info}
-    volumes:
-      # Hot-reload in dev: mount source (override in prod)
-      - ./apps/api:/app:ro
+    depends_on:
+      guardrails-service:
+        condition: service_healthy
+      moss-service:
+        condition: service_healthy
+      evaluation-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
+      interval: 20s
+      timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 15s
     networks:
-      - trustmoss-net
+      - trustmoss-internal
+      - trustmoss-public
 
   # ─────────────────────────────────────────────
-  # TrustMoss React/Vite Frontend
+  # 5. LiveKit Autonomous Voice Agent Worker
+  # ─────────────────────────────────────────────
+  livekit-voice-agent:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      target: voice-agent
+    image: trustmoss-voice-agent:latest
+    container_name: trustmoss-voice-agent
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    depends_on:
+      trustmoss-gateway:
+        condition: service_healthy
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 6. TrustMoss Next.js 14+ App Router UI
   # ─────────────────────────────────────────────
   web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-      target: runtime
     image: trustmoss-web:latest
     container_name: trustmoss-web
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
-      api:
+      trustmoss-gateway:
         condition: service_healthy
     environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - NODE_ENV=production
+      - TRUSTMOSS_API_URL=http://trustmoss-gateway:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     networks:
-      - trustmoss-net
+      - trustmoss-public
 
 # ─────────────────────────────────────────────
-# Shared internal network
+# Network Topology: Public vs Internal Isolation
 # ─────────────────────────────────────────────
 networks:
-  trustmoss-net:
+  trustmoss-public:
+    driver: bridge
+  trustmoss-internal:
     driver: bridge
