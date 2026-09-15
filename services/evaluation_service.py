@@ -14,6 +14,7 @@ import os
 import sys
 import uuid
 from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/api")))
@@ -31,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trustmoss.evaluation_service")
 
 from services.crypto import EncryptedStore, get_encryption_key
+from services.retention import DataCategory, DEFAULT_HITL_TTL_SEC, retention_manager
 
 app = FastAPI(
     title="TrustMoss Evaluation & Governance Service",
@@ -154,14 +156,19 @@ async def evaluate_turn(req: EvaluateRequest):
 
     # If flagged, automatically queue in HITL review queue
     if requires_hitl:
+        now_dt = datetime.now(timezone.utc)
+        expires_dt = now_dt + timedelta(seconds=DEFAULT_HITL_TTL_SEC)
+        query_id = str(uuid.uuid4())[:8]
         item = {
-            "query_id": str(uuid.uuid4())[:8],
+            "query_id": query_id,
+            "subject_id": req.query[:32],
             "query": req.query,
             "answer": req.answer,
             "trust": trust,
             "groundedness_score": g_score,
             "context_chunks": req.context_chunks,
-            "queued_at": datetime.now(timezone.utc).isoformat(),
+            "queued_at": now_dt.isoformat(),
+            "expires_at": expires_dt.isoformat(),
             "status": "pending_review",
         }
         _hitl_queue.append(item)
@@ -218,6 +225,70 @@ async def resolve_hitl(req: HitlResolveRequest):
 
 
 # ---------------------------------------------------------------------------
+# GDPR & Data Retention Endpoints
+# ---------------------------------------------------------------------------
+class ErasureRequest(BaseModel):
+    subject_id: str
+    reviewer: str = "compliance_officer"
+
+
+@app.post("/retention/purge")
+async def purge_expired_records():
+    """Purges records whose expires_at timestamp has passed."""
+    global _hitl_queue
+    now_iso = datetime.now(timezone.utc).isoformat()
+    unexpired = []
+    purged = 0
+    for item in _hitl_queue:
+        if item.get("expires_at") and item["expires_at"] <= now_iso:
+            purged += 1
+        else:
+            unexpired.append(item)
+    _hitl_queue = unexpired
+    _encrypted_store.save_records(_hitl_queue)
+    return {
+        "status": "success",
+        "purged_count": purged,
+        "remaining_count": len(_hitl_queue),
+        "timestamp": now_iso,
+    }
+
+
+@app.post("/retention/erasure")
+async def execute_erasure(req: ErasureRequest):
+    """Executes GDPR Article 17 Erasure on the HITL store by subject_id or query_id."""
+    global _hitl_queue
+    initial_len = len(_hitl_queue)
+    _hitl_queue = [
+        item for item in _hitl_queue
+        if item.get("subject_id") != req.subject_id and item.get("query_id") != req.subject_id
+    ]
+    erased = initial_len - len(_hitl_queue)
+    _encrypted_store.save_records(_hitl_queue)
+    return {
+        "status": "success",
+        "subject_id": req.subject_id,
+        "erased_count": erased,
+        "remaining_count": len(_hitl_queue),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/retention/status")
+async def retention_status():
+    """Returns retention policy and status of HITL store."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    expired_count = sum(1 for item in _hitl_queue if item.get("expires_at") and item["expires_at"] <= now_iso)
+    return {
+        "policy_name": "GDPR-Compliant 90-Day HITL Retention",
+        "ttl_seconds": DEFAULT_HITL_TTL_SEC,
+        "total_records": len(_hitl_queue),
+        "expired_pending_purge": expired_count,
+        "active_records": len(_hitl_queue) - expired_count,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Index Version Registry ('Git for Knowledge') Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/registry/versions")
@@ -264,6 +335,12 @@ async def health():
             "auth_tag_bits": 128,
             "encrypted_store_path": str(_encrypted_store.filepath),
             "records_persisted": len(_hitl_queue),
+        },
+        "gdpr_compliance": {
+            "article_17_erasure": True,
+            "article_15_access": True,
+            "automated_ttl_purging": True,
+            "hitl_ttl_days": DEFAULT_HITL_TTL_SEC // 86400,
         },
     }
 

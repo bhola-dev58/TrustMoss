@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 
 import moss_client
 from guardrails import groundedness, pii_scan, relevance
+from retention import DataCategory, retention_manager
 from tracer import Tracer
 from trust_score import aggregate
 
@@ -233,6 +234,7 @@ async def process_voice_turn(
     if room_name not in _voice_sessions:
         _voice_sessions[room_name] = {
             "room_name": room_name,
+            "participant_identity": participant_identity,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "turns": [],
             "total_turns": 0,
@@ -240,6 +242,7 @@ async def process_voice_turn(
         }
 
     session = _voice_sessions[room_name]
+    session["participant_identity"] = participant_identity
     session["total_turns"] += 1
     if circuit_breaker_tripped:
         session["circuit_breaker_events"] += 1
@@ -253,6 +256,23 @@ async def process_voice_turn(
     # Keep last 50 turns
     if len(session["turns"]) > 50:
         session["turns"].pop(0)
+
+    # Register transcript turn under GDPR TTL retention manager
+    try:
+        retention_manager.register_record(
+            record_id=turn_id,
+            subject_id=participant_identity,
+            category=DataCategory.TRANSCRIPT,
+            data={
+                "room_name": room_name,
+                "transcript": transcript,
+                "verdict": trust["verdict"],
+                "circuit_breaker_tripped": circuit_breaker_tripped,
+                "latency_breakdown": result["latency_breakdown"],
+            },
+        )
+    except Exception as e:
+        logger.warning("Could not register turn in retention manager: %s", e)
 
     logger.info(
         "Voice turn completed: room=%s turn_id=%s verdict=%s cb=%s total_ms=%.1f",
@@ -276,9 +296,24 @@ def list_active_voice_sessions() -> List[Dict[str, Any]]:
     return [
         {
             "room_name": s["room_name"],
+            "participant_identity": s.get("participant_identity"),
             "created_at": s["created_at"],
             "total_turns": s["total_turns"],
             "circuit_breaker_events": s["circuit_breaker_events"],
         }
         for s in _voice_sessions.values()
     ]
+
+
+def erase_voice_session_data(subject_or_room: str) -> int:
+    """
+    Purges voice sessions matching room_name or participant_identity.
+    Supports GDPR Article 17 Right to Erasure.
+    """
+    to_delete = [
+        room for room, sess in _voice_sessions.items()
+        if room == subject_or_room or sess.get("participant_identity") == subject_or_room
+    ]
+    for r in to_delete:
+        del _voice_sessions[r]
+    return len(to_delete)

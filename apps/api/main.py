@@ -32,6 +32,7 @@ import auth
 import crypto
 import livekit_service
 import moss_client
+import retention
 import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
 from security_middleware import SecurityHeadersMiddleware
@@ -315,6 +316,21 @@ async def query_endpoint(request: QueryRequest):
     if len(_session_history) > 50:
         _session_history.pop(0)
 
+    # Register audit record in GDPR retention manager
+    try:
+        retention.retention_manager.register_record(
+            record_id=query_id,
+            subject_id=request.query[:32],
+            category=retention.DataCategory.AUDIT_LOG,
+            data={
+                "query": request.query,
+                "verdict": trust["verdict"],
+                "total_ms": total_ms,
+            },
+        )
+    except Exception as e:
+        logger.warning("Could not register audit record in retention manager: %s", e)
+
     logger.info(
         "query_id=%s verdict=%s total_ms=%.1f",
         query_id,
@@ -454,6 +470,16 @@ async def health():
             "cipher_algorithm": "AES-256-GCM (NIST SP 800-38D)",
             "key_size_bits": 256,
         },
+        "compliance": {
+            "gdpr_article_17_erasure": "active",
+            "gdpr_article_15_access": "active",
+            "ttl_retention_engine": "active",
+            "retention_days": {
+                "transcripts": retention.DEFAULT_TRANSCRIPT_TTL_SEC // 86400,
+                "audit_logs": retention.DEFAULT_AUDIT_TTL_SEC // 86400,
+                "hitl_records": retention.DEFAULT_HITL_TTL_SEC // 86400,
+            },
+        },
         "microservices": {
             "guardrails_service": GUARDRAILS_SERVICE_URL or "internal/colocated",
             "moss_service": MOSS_SERVICE_URL or "internal/colocated",
@@ -481,3 +507,89 @@ async def encryption_posture():
         "tamper_proof": True,
         "prefix": crypto.CIPHER_PREFIX,
     }
+
+
+# ---------------------------------------------------------------------------
+# GDPR Compliance & Lifecycle Retention Endpoints (Articles 15 & 17)
+# ---------------------------------------------------------------------------
+class GdprErasureRequest(BaseModel):
+    subject_id: str
+    requested_by: str = "data_subject"
+
+
+@app.post("/api/compliance/gdpr/erasure")
+async def gdpr_erasure_endpoint(req: GdprErasureRequest):
+    """
+    Executes GDPR Article 17 ('Right to Erasure' / 'Right to be Forgotten').
+    Permanently purges transcripts, audit records, and voice sessions for subject_id.
+    """
+    # 1. Erase from gateway retention manager
+    retention_report = retention.retention_manager.execute_erasure(
+        subject_id=req.subject_id,
+        requested_by=req.requested_by,
+    )
+
+    # 2. Erase from gateway active voice sessions
+    voice_purged = voice_gateway.erase_voice_session_data(req.subject_id)
+
+    # 3. Erase from in-memory session history
+    global _session_history
+    init_hist_len = len(_session_history)
+    _session_history = [
+        item for item in _session_history
+        if item.get("query_id") != req.subject_id and req.subject_id not in item.get("query", "")
+    ]
+    hist_purged = init_hist_len - len(_session_history)
+
+    # 4. If decoupled evaluation microservice is configured, forward erasure
+    eval_purged = 0
+    if EVALUATION_SERVICE_URL:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.post(
+                    f"{EVALUATION_SERVICE_URL}/retention/erasure",
+                    json={"subject_id": req.subject_id, "reviewer": req.requested_by},
+                )
+                if res.status_code == 200:
+                    eval_purged = res.json().get("erased_count", 0)
+        except Exception as e:
+            logger.warning("Could not propagate erasure to evaluation service: %s", e)
+
+    return {
+        "status": "success",
+        "subject_id": req.subject_id,
+        "gdpr_article": "Article 17 (Right to Erasure)",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "summary": {
+            "retention_records_erased": retention_report["records_erased"],
+            "voice_sessions_erased": voice_purged,
+            "session_history_erased": hist_purged,
+            "evaluation_hitl_erased": eval_purged,
+        },
+    }
+
+
+@app.get("/api/compliance/gdpr/export/{subject_id}")
+async def gdpr_export_endpoint(subject_id: str):
+    """
+    Executes GDPR Article 15 ('Right of Access') & Article 20 ('Data Portability').
+    Returns all collected data across transcripts and audit records in portable format.
+    """
+    export_data = retention.retention_manager.export_subject_data(subject_id)
+    return export_data
+
+
+@app.post("/api/compliance/retention/purge")
+async def manual_purge_endpoint(category: Optional[str] = None):
+    """Triggers an immediate purge cycle for expired records based on configured TTL."""
+    report = retention.retention_manager.purge_expired(category=category)
+    return {
+        "status": "success",
+        "purge_report": report,
+    }
+
+
+@app.get("/api/compliance/retention/policy")
+async def retention_policy_endpoint():
+    """Returns active retention policies, TTL durations, and compliance telemetry."""
+    return retention.retention_manager.get_telemetry()
