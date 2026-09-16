@@ -30,6 +30,7 @@ from pydantic import BaseModel
 
 import auth
 import crypto
+import explainability
 import livekit_service
 import moss_client
 import retention
@@ -54,6 +55,7 @@ EVALUATION_SERVICE_URL = os.getenv("EVALUATION_SERVICE_URL", "").rstrip("/")
 
 # In-memory session history (list of QueryResponse dicts)
 _session_history: List[dict] = []
+_explain_store: dict = {}          # query_id → factorized TrustExplanation dict (last 200)
 
 # ---------------------------------------------------------------------------
 # Groq client (module-level singleton)
@@ -295,6 +297,21 @@ async def query_endpoint(request: QueryRequest):
     latency_trace = tracer.get_trace()
     total_ms = tracer.total_ms()
 
+    # ------------------------------------------------------------------
+    # 4.4 – Trust Score Explainability Framework
+    # Build factorized explanation with Moss-cited evidence
+    # ------------------------------------------------------------------
+    trust_explanation = explainability.build_trust_explanation(
+        query_id=query_id,
+        query=request.query,
+        answer=final_answer,
+        verdict=trust["verdict"],
+        relevance_result=relevance_result,
+        groundedness_result=groundedness_result,
+        pii_result=pii_result,
+        context_chunks=context_chunks,
+    )
+
     response = {
         "query_id": query_id,
         "query": request.query,
@@ -306,6 +323,7 @@ async def query_endpoint(request: QueryRequest):
             "groundedness": groundedness_result,
             "pii": {k: v for k, v in pii_result.items() if k != "redacted_answer"},
         },
+        "explanation": trust_explanation.to_dict(),
         "latency_trace": latency_trace,
         "total_latency_ms": total_ms,
         "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -315,6 +333,12 @@ async def query_endpoint(request: QueryRequest):
     _session_history.append(response)
     if len(_session_history) > 50:
         _session_history.pop(0)
+
+    # Store explanation for /api/explain/<query_id> look-up
+    _explain_store[query_id] = trust_explanation.to_dict()
+    if len(_explain_store) > 200:
+        oldest = next(iter(_explain_store))
+        del _explain_store[oldest]
 
     # Register audit record in GDPR retention manager
     try:
@@ -326,19 +350,47 @@ async def query_endpoint(request: QueryRequest):
                 "query": request.query,
                 "verdict": trust["verdict"],
                 "total_ms": total_ms,
+                "trust_grade": trust_explanation.trust_grade,
             },
         )
     except Exception as e:
         logger.warning("Could not register audit record in retention manager: %s", e)
 
     logger.info(
-        "query_id=%s verdict=%s total_ms=%.1f",
+        "query_id=%s verdict=%s grade=%s total_ms=%.1f",
         query_id,
         trust["verdict"],
+        trust_explanation.trust_grade,
         total_ms,
     )
 
     return response
+
+
+# ---------------------------------------------------------------------------
+# GET /api/explain/{query_id} — retrieve factorized trust explanation
+# ---------------------------------------------------------------------------
+@app.get("/api/explain/{query_id}")
+async def explain_endpoint(query_id: str, _: dict = Depends(auth.verify_token)):
+    """
+    Returns the full factorized trust explanation for a completed query turn.
+
+    Response structure:
+    - composite_score    Weighted 0.0–1.0 trust score
+    - trust_grade        A–F letter grade
+    - confidence_level   HIGH / MEDIUM / LOW
+    - factors[]          Per-dimension explanation (relevance, groundedness, pii, bias)
+    - cited_chunks[]     Moss context chunks cited as evidence
+    """
+    explanation = _explain_store.get(query_id)
+    if not explanation:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail=f"No explanation found for query_id '{query_id}'. "
+                   "Explanations are retained for the 200 most recent queries.",
+        )
+    return explanation
 
 
 # ---------------------------------------------------------------------------
