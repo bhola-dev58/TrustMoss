@@ -217,6 +217,14 @@ class TestRenderHITLBriefPrompt:
 class TestTemplateRenderIntegration:
     def test_all_templates_render_without_exception(self):
         for name, tmpl in TEMPLATE_REGISTRY.items():
+            # Skip evaluation engine templates — they require extra vars and
+            # are fully tested in test_evaluation_prompts.py
+            _EVAL_TEMPLATES = {
+                "GROUNDEDNESS_JUDGE_V1", "HALLUCINATION_RISK_V1",
+                "JAILBREAK_ANALYST_V1", "HITL_VERDICT_V1",
+            }
+            if name in _EVAL_TEMPLATES:
+                continue
             try:
                 if name == "HITL_SUMMARIZER_V1":
                     sys_p, usr_p = tmpl.render(

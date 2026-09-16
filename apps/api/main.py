@@ -36,7 +36,9 @@ import moss_client
 import retention
 import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
+from prompts.catalog import catalog, catalog_as_markdown, get_catalog_entry
 from prompts.crispe import render_orchestrator_prompt, ORCHESTRATOR_V1
+import prompts.evaluation  # registers evaluation templates in TEMPLATE_REGISTRY
 from security_middleware import SecurityHeadersMiddleware
 from tracer import Tracer
 from trust_score import aggregate
@@ -124,6 +126,20 @@ async def lifespan(app: FastAPI):
     logger.info("Starting TrustMoss backend…")
     await moss_client.init()
     logger.info("Moss client ready. Server accepting requests.")
+
+    # Auto-generate PROMPT_CATALOG.md at startup (Task 5.3 — PRD Embedding)
+    try:
+        import os as _os
+        _docs_dir = _os.path.join(_os.path.dirname(__file__), "..", "..", "docs")
+        _os.makedirs(_docs_dir, exist_ok=True)
+        _catalog_path = _os.path.join(_docs_dir, "PROMPT_CATALOG.md")
+        with open(_catalog_path, "w") as _f:
+            _f.write(catalog_as_markdown())
+        _total = catalog()["total_templates"]
+        logger.info("Prompt catalog: %d templates registered. PROMPT_CATALOG.md written.", _total)
+    except Exception as _e:
+        logger.warning("Could not write PROMPT_CATALOG.md: %s", _e)
+
     yield
     logger.info("Shutting down TrustMoss backend.")
 
@@ -393,6 +409,38 @@ async def history_endpoint():
         "count": len(_session_history),
         "queries": list(reversed(_session_history)),  # newest first
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/prompts/catalog     — full CRISPE prompt catalog
+# GET /api/prompts/catalog/{name} — single template spec
+# (Task 5.3 — Prompt Catalog Module & PRD Embedding)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/prompts/catalog")
+async def prompt_catalog_endpoint(_: dict = Depends(auth.verify_token)):
+    """
+    Returns the full versioned CRISPE prompt catalog.
+    Lists all 7 templates with category, LLM surface, CRISPE section summaries,
+    PRD section references, and runtime parameters.
+    """
+    return catalog()
+
+
+@app.get("/api/prompts/catalog/{template_name}")
+async def prompt_catalog_entry_endpoint(
+    template_name: str,
+    _: dict = Depends(auth.verify_token),
+):
+    """
+    Returns the catalog entry for a single named CRISPE template.
+    Includes full CRISPE section summary, PRD reference, guardrail list,
+    and all runtime parameters.
+    """
+    try:
+        return get_catalog_entry(template_name)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
