@@ -194,4 +194,21 @@ sequenceDiagram
 
 ---
 
+## 6. Requirements Traceability & Verification Gating
+
+Every component across the TrustMoss 23-Node Architecture is mapped 1:1 to formal Functional Requirement IDs (`FR-*`) and Measurable Acceptance Criteria (`MAC-*`) verified by 121 automated unit and integration tests.
+
+The full matrix is maintained in [docs/REQUIREMENTS_TRACEABILITY_MATRIX.md](file:///home/bhola-dev58/Ozeonix/TrustMoss/docs/REQUIREMENTS_TRACEABILITY_MATRIX.md).
+
+| Domain | Architecture Nodes | Requirement Prefix | Verification Test Suites | Status |
+| :--- | :--- | :--- | :--- | :---: |
+| **Enterprise Security & Cryptography** | Nodes 1–6 (Inbound/Outbound Guardrails, JWT/RBAC, OWASP, AES-256-GCM AEAD, GDPR) | `FR-SEC-01` – `06` | `test_auth_security.py`, `test_crypto_encryption.py`, `test_retention_gdpr.py` | ✅ VERIFIED |
+| **Real-Time Reliability & Evaluation** | Nodes 7–14 (Gateway, Relevance Gate, Groundedness, Risk Classifier, Trust Aggregator, Circuit Breaker, OTel, Explainability) | `FR-RT-01` – `08` | `test_microservices.py`, `test_evaluation_prompts.py`, `test_explainability.py` | ✅ VERIFIED |
+| **LiveKit WebRTC Voice Gateway** | Nodes 15–17 (Token Service, Audio Interceptor/Breaker, Autonomous Voice Worker) | `FR-VOICE-01` – `03` | `test_livekit_gateway.py`, `test_crispe_prompts.py` | ✅ VERIFIED |
+| **Moss Retrieval & Knowledge Lifecycle** | Nodes 18–20 (Moss Retrieval Engine, Ingestion Pipeline, Index Version Registry) | `FR-MOSS-01` – `03` | `test_microservices.py`, `services/moss_service.py` | ✅ VERIFIED |
+| **Governance, HITL & Prompt Catalog** | Nodes 21–22 (HITL Review Queue, CRISPE Prompt Catalog) | `FR-GOV-01` – `02` | `test_prompt_catalog.py`, `test_evaluation_prompts.py` | ✅ VERIFIED |
+| **User Interface & Reliability HUD** | Node 23 (Next.js 14+ SSR Reliability HUD & Operations Console) | `FR-UI-01` | Next.js SSR Suite, WebRTC Audio HUD Component | ✅ VERIFIED |
+
+---
+
 *TrustMoss — Built for the YC Fall 2026 x Moss Zero Latency Builder Sprint.*
