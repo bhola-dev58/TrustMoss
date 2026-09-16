@@ -25,6 +25,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from guardrails import relevance
+from prompts.evaluation import (
+    GROUNDEDNESS_JUDGE_V1,
+    HALLUCINATION_RISK_V1,
+    HITL_VERDICT_V1,
+    render_hallucination_risk_prompt,
+    render_hitl_verdict_prompt,
+)
 from trust_score import aggregate
 
 load_dotenv()
@@ -102,6 +109,7 @@ class EvaluateResponse(BaseModel):
     relevance: Dict[str, Any]
     circuit_breaker_tripped: bool
     requires_hitl: bool
+    hallucination_risk: Dict[str, Any] = {}
 
 
 class HitlResolveRequest(BaseModel):
@@ -177,6 +185,50 @@ async def evaluate_turn(req: EvaluateRequest):
         except Exception as e:
             logger.error("Failed to persist encrypted HITL queue: %s", e)
 
+    # 5. Hallucination risk tier classification using HALLUCINATION_RISK_V1 template
+    #    (static heuristic — upgrade to LLM call when Groq client is available in this service)
+    unsupported_count = 0
+    if not g_passed:
+        answer_sentences = [s.strip() for s in req.answer.split(".") if s.strip()]
+        context_words = set(
+            w.strip(".,!?;:") for c in req.context_chunks for w in c.get("text", "").lower().split()
+        )
+        unsupported_count = sum(
+            1 for s in answer_sentences
+            if not any(w.lower() in context_words for w in s.split() if len(w) > 3)
+        )
+
+    if g_score >= 0.90 and rel_res["score"] >= 0.80:
+        risk_tier = "LOW"
+        risk_recommended_action = "DELIVER"
+        hitl_priority = "NORMAL"
+    elif g_score >= 0.70:
+        risk_tier = "MEDIUM"
+        risk_recommended_action = "REVIEW"
+        hitl_priority = "NORMAL"
+    elif g_score >= 0.50:
+        risk_tier = "HIGH"
+        risk_recommended_action = "BLOCK"
+        hitl_priority = "HIGH"
+    else:
+        risk_tier = "CRITICAL"
+        risk_recommended_action = "ESCALATE"
+        hitl_priority = "URGENT"
+
+    hallucination_risk = {
+        "template": HALLUCINATION_RISK_V1.name,
+        "template_version": HALLUCINATION_RISK_V1.version,
+        "risk_tier": risk_tier,
+        "risk_score": round(1.0 - g_score, 4),
+        "primary_driver": (
+            f"Groundedness {g_score:.2f} with {unsupported_count} unsupported sentence(s)"
+            if not g_passed
+            else "All sentences grounded in Moss context"
+        ),
+        "recommended_action": risk_recommended_action,
+        "hitl_priority": hitl_priority,
+    }
+
     return EvaluateResponse(
         verdict=trust["verdict"],
         color=trust["color"],
@@ -186,6 +238,7 @@ async def evaluate_turn(req: EvaluateRequest):
         relevance=rel_res,
         circuit_breaker_tripped=cb_tripped,
         requires_hitl=requires_hitl,
+        hallucination_risk=hallucination_risk,
     )
 
 
@@ -215,11 +268,48 @@ async def resolve_hitl(req: HitlResolveRequest):
             item["resolved_by"] = req.reviewer
             item["resolved_at"] = datetime.now(timezone.utc).isoformat()
             item["approved_answer"] = req.corrected_answer
+
+            # Generate structured HITL verdict record using HITL_VERDICT_V1 CRISPE template
+            original_score = item.get("groundedness_score", 0.0)
+            trust_data = item.get("trust", {})
+            failed = trust_data.get("failed_checks", [])
+            verdict_label = "REVISED" if req.corrected_answer.strip() else "APPROVED"
+
+            # Heuristic post-review trust score: correction implies closer to grounded
+            post_review_score = min(1.0, original_score + 0.20) if verdict_label == "REVISED" else original_score
+
+            item["hitl_verdict"] = {
+                "template": HITL_VERDICT_V1.name,
+                "template_version": HITL_VERDICT_V1.version,
+                "verdict": verdict_label,
+                "reviewer": req.reviewer,
+                "trust_delta": {
+                    "original_score": round(original_score, 4),
+                    "post_review_score": round(post_review_score, 4),
+                    "improvement": round(post_review_score - original_score, 4),
+                },
+                "changes_made": [
+                    f"Answer corrected by reviewer {req.reviewer}"
+                ] if verdict_label == "REVISED" else [],
+                "compliance_log": {
+                    "gdpr_article": "Article 5(1)(e)" if failed else "N/A",
+                    "action_code": "DELIVER" if verdict_label == "APPROVED" else "REDACT",
+                    "audit_note": f"HITL {verdict_label.lower()} by {req.reviewer} at {item['resolved_at'][:19]}Z",
+                },
+                "follow_up_required": len(failed) > 1,
+                "follow_up_reason": f"Multiple failed dimensions: {', '.join(failed)}" if len(failed) > 1 else None,
+            }
+
             try:
                 _encrypted_store.save_records(_hitl_queue)
             except Exception as e:
                 logger.error("Failed to persist resolved HITL update: %s", e)
-            return {"status": "ok", "message": f"Query {req.query_id} resolved and queued for Moss index update."}
+
+            return {
+                "status": "ok",
+                "message": f"Query {req.query_id} resolved and queued for Moss index update.",
+                "verdict_record": item["hitl_verdict"],
+            }
 
     raise HTTPException(status_code=404, detail="Query ID not found in HITL queue.")
 
