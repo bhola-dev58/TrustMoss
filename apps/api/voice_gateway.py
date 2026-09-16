@@ -22,12 +22,17 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 import moss_client
+from groq import AsyncGroq
 from guardrails import groundedness, pii_scan, relevance
+from prompts.crispe import render_voice_prompt, VOICE_AGENT_V1
 from retention import DataCategory, retention_manager
 from tracer import Tracer
 from trust_score import aggregate
 
 load_dotenv()
+
+_voice_groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY", ""))
+_voice_groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 logger = logging.getLogger("trustmoss.voice_gateway")
 
 # In-memory session tracking for voice rooms
@@ -171,10 +176,19 @@ async def process_voice_turn(
     with tracer.stage("relevance_gate"):
         relevance_result = relevance.check(top_score)
 
-    # 5. LLM reasoning
+    # 5. LLM reasoning — VOICE_AGENT_V1 CRISPE template (TTS-optimised brevity)
     with tracer.stage("llm_reasoning"):
-        from main import call_llm
-        raw_agent_response = await call_llm(transcript, context_chunks)
+        _sys, _usr = render_voice_prompt(transcript, context_chunks)
+        _resp = await _voice_groq_client.chat.completions.create(
+            model=_voice_groq_model,
+            messages=[
+                {"role": "system", "content": _sys},
+                {"role": "user", "content": _usr},
+            ],
+            max_tokens=VOICE_AGENT_V1.metadata.get("max_tokens", 256),
+            temperature=VOICE_AGENT_V1.metadata.get("temperature", 0.25),
+        )
+        raw_agent_response = _resp.choices[0].message.content.strip()
 
     # 6. Outbound Groundedness & PII
     with tracer.stage("groundedness_eval"):

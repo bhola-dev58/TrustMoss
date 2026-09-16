@@ -36,6 +36,7 @@ import moss_client
 import retention
 import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
+from prompts.crispe import render_orchestrator_prompt, ORCHESTRATOR_V1
 from security_middleware import SecurityHeadersMiddleware
 from tracer import Tracer
 from trust_score import aggregate
@@ -200,32 +201,22 @@ class VoiceTurnRequest(BaseModel):
 # Helper: call Groq LLM
 # ---------------------------------------------------------------------------
 async def call_llm(query: str, context_chunks: list) -> str:
-    context_text = "\n\n".join(
-        f"[Source {i + 1}] {chunk['text']}"
-        for i, chunk in enumerate(context_chunks)
-    )
+    """
+    Calls the Groq LLM using the production ORCHESTRATOR_V1 CRISPE prompt template.
+    Template: prompts/crispe.py::ORCHESTRATOR_V1 (version {version})
+    """.format(version=ORCHESTRATOR_V1.version)
+    # Render structured CRISPE prompt (Capacity, Request, Insight, Style, Persona, Execute)
+    system_prompt, user_message = render_orchestrator_prompt(query, context_chunks)
 
-    system_prompt = (
-        "You are a helpful knowledge base assistant. "
-        "Answer the user's question using ONLY the provided context. "
-        "If the context doesn't contain enough information, say so clearly. "
-        "Be concise and accurate."
-    )
-
-    user_message = (
-        f"Context:\n{context_text}\n\n"
-        f"Question: {query}\n\n"
-        "Answer:"
-    )
-
+    meta = ORCHESTRATOR_V1.metadata
     response = await groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        max_tokens=512,
-        temperature=0.3,
+        max_tokens=meta.get("max_tokens", 512),
+        temperature=meta.get("temperature", 0.2),
     )
 
     return response.choices[0].message.content.strip()
