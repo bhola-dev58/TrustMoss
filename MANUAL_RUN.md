@@ -224,10 +224,15 @@ docker compose up -d
 docker compose ps
 
 # 4. Smoke test each health endpoint
-curl -sf http://localhost:8000/health | python3 -m json.tool   # Gateway
+curl -sf http://localhost:8000/health | python3 -m json.tool   # Gateway (includes database health)
 curl -sf http://localhost:8001/health | python3 -m json.tool   # Guardrails
 curl -sf http://localhost:8002/health | python3 -m json.tool   # Moss
 curl -sf http://localhost:8003/health | python3 -m json.tool   # Evaluation
+
+# 4a. Verify PostgreSQL & Redis services and run migrations
+alembic upgrade head
+docker compose exec postgres psql -U trustmoss -d trustmoss -c "\dt"
+docker compose exec redis redis-cli ping
 
 # 5. Smoke test JWT auth endpoint (end-to-end pipeline check)
 curl -sf -X POST http://localhost:8000/api/auth/token \
