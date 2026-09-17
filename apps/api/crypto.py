@@ -47,10 +47,18 @@ def get_encryption_key(key_override: Optional[Union[str, bytes]] = None) -> byte
     Resolves the 256-bit (32-byte) encryption key.
     Precedence:
     1. key_override parameter
-    2. ENCRYPTION_KEY environment variable
-    3. Deterministic SHA-256 development fallback
+    2. TrustMoss secret provider (Vault | AWS | ENV via secrets.get_secret)
+    3. ENCRYPTION_KEY environment variable (direct fallback)
+    4. Deterministic SHA-256 development fallback (never use in production)
     """
-    raw_key = key_override or os.getenv("ENCRYPTION_KEY")
+    # ── Try the TrustMoss unified secret provider first ───────────────────────
+    try:
+        from secrets import get_secret as _get_secret  # TrustMoss secret abstraction
+        _provider_key = _get_secret("ENCRYPTION_KEY")
+    except ImportError:
+        _provider_key = None
+
+    raw_key = key_override or _provider_key or os.getenv("ENCRYPTION_KEY")
 
     if not raw_key:
         # Development fallback — deterministic 32-byte key

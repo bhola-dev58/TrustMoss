@@ -16,9 +16,15 @@ load_dotenv()
 
 logger = logging.getLogger("trustmoss.livekit")
 
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "wss://trustmoss-demo.livekit.cloud")
-LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "devkey")
-LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret0123456789abcdef0123456789abcdef")
+# ── Secret Resolution via unified provider (Vault | AWS | ENV) ────────────────
+try:
+    from secrets import get_secret as _get_secret
+except ImportError:
+    _get_secret = lambda key, default=None: os.getenv(key, default)  # noqa: E731
+
+LIVEKIT_URL        = _get_secret("LIVEKIT_URL")        or os.getenv("LIVEKIT_URL", "wss://trustmoss-demo.livekit.cloud")
+LIVEKIT_API_KEY    = _get_secret("LIVEKIT_API_KEY")    or os.getenv("LIVEKIT_API_KEY", "devkey")
+LIVEKIT_API_SECRET = _get_secret("LIVEKIT_API_SECRET") or os.getenv("LIVEKIT_API_SECRET", "secret0123456789abcdef0123456789abcdef")
 
 
 def get_livekit_config() -> dict:

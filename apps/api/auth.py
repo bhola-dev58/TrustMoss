@@ -24,7 +24,16 @@ from pydantic import BaseModel
 load_dotenv()
 logger = logging.getLogger("trustmoss.auth")
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "trustmoss_enterprise_secret_key_2026_x89a7f")
+# ── Secret Resolution via unified provider (Vault | AWS | ENV) ────────────────
+try:
+    from secrets import get_secret as _get_secret  # TrustMoss secret abstraction
+except ImportError:
+    import os as _os
+    _get_secret = lambda key, default=None: _os.getenv(key, default)  # noqa: E731
+
+JWT_SECRET_KEY = _get_secret("JWT_SECRET_KEY") or os.getenv(
+    "JWT_SECRET_KEY", "trustmoss_enterprise_secret_key_2026_x89a7f"
+)
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "120"))
 AUTH_STRICT = os.getenv("AUTH_STRICT", "false").lower() == "true"
