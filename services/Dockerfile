@@ -29,6 +29,9 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY --chown=trustmoss:trustmoss . .
 
+# Ensure data directory exists and is owned by non-root trustmoss user
+RUN mkdir -p /app/data && chown -R trustmoss:trustmoss /app
+
 ENV PYTHONPATH="/app/apps/api:/app/services:/app"
 USER trustmoss
 

@@ -2,6 +2,7 @@
 Unit and Integration Tests for GDPR Compliance & Data Lifecycle Retention Engine (Task 4.3)
 """
 
+import asyncio
 import tempfile
 import unittest
 from datetime import datetime, timezone, timedelta
@@ -10,7 +11,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from apps.api.main import app as gateway_app
-from apps.api.retention import (
+import retention
+from retention import (
     DataCategory,
     RetentionManager,
     retention_manager,
@@ -97,12 +99,12 @@ class TestRetentionManagerCore(unittest.TestCase):
 
 class TestVoiceGatewayRetentionIntegration(unittest.TestCase):
     def test_voice_turn_registration_and_erasure(self):
-        res = voice_gateway.process_voice_turn(
+        res = asyncio.run(voice_gateway.process_voice_turn(
             room_name="gdpr-test-room",
             participant_identity="patient-jane-doe",
             transcript="Check on prescription dosage for Jane Doe",
             top_k=2,
-        )
+        ))
         self.assertIn("verdict", res)
 
         # Check session recorded participant

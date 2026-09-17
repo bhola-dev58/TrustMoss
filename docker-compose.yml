@@ -78,6 +78,8 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8001"
+    env_file:
+      - ./apps/api/.env
     environment:
       - GUARDRAILS_PORT=8001
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -130,6 +132,8 @@ services:
     restart: unless-stopped
     ports:
       - "8003:8003"
+    env_file:
+      - ./apps/api/.env
     environment:
       - EVALUATION_PORT=8003
       - GROUNDEDNESS_THRESHOLD=${GROUNDEDNESS_THRESHOLD:-0.85}

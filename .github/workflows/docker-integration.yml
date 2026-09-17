@@ -107,6 +107,7 @@ jobs:
           file: apps/web/Dockerfile
           tags: trustmoss-web:ci-${{ github.sha }}
           push: false
+          load: true
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
           build-args: |

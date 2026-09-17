@@ -232,6 +232,7 @@ async def process_voice_turn(
         "audio_suppressed": audio_suppressed,
         "circuit_breaker_tripped": circuit_breaker_tripped,
         "context_chunks": context_chunks,
+        "verdict": trust["verdict"],
         "trust": trust,
         "guardrails": {
             "injection": injection_result,
@@ -282,7 +283,7 @@ async def process_voice_turn(
                 "transcript": transcript,
                 "verdict": trust["verdict"],
                 "circuit_breaker_tripped": circuit_breaker_tripped,
-                "latency_breakdown": result["latency_breakdown"],
+                "latency_breakdown": result.get("latency_trace", []),
             },
         )
     except Exception as e:

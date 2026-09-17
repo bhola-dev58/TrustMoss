@@ -19,8 +19,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger("trustmoss.crypto")
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from cryptography.exceptions import InvalidTag
@@ -231,7 +234,10 @@ class EncryptedStore:
         self.filepath = Path(filepath)
         self.sensitive_fields = tuple(sensitive_fields)
         self.key = key or get_encryption_key()
-        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.warning("Could not pre-create parent directory %s: %s", self.filepath.parent, e)
 
     def save_records(self, items: List[Dict[str, Any]]) -> None:
         """

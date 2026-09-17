@@ -122,6 +122,10 @@ async def get_current_user(
     return payload
 
 
+# Alias for dependency injection in endpoints
+verify_token = get_current_user
+
+
 def require_roles(allowed_roles: List[str]):
     """Role-Based Access Control (RBAC) dependency factory."""
 
