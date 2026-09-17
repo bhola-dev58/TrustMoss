@@ -211,4 +211,69 @@ The full matrix is maintained in [docs/REQUIREMENTS_TRACEABILITY_MATRIX.md](file
 
 ---
 
+## 7. Persistence, Caching & Secrets Topology (Phases 8 & 9)
+
+```mermaid
+flowchart TD
+    subgraph ClientTier["Clients & Ingress"]
+        UI["Next.js 14+ HUD (Port 3000)"]
+        VoiceClient["WebRTC Voice Client"]
+        AgentWorker["Autonomous Agent Worker"]
+    end
+
+    subgraph GatewayTier["Gateway & Microservices Orchestration"]
+        GW["Trust Gateway (Port 8000)"]
+        Guard["Guardrails Service (Port 8001)"]
+        Moss["Moss Service (Port 8002)"]
+        Eval["Evaluation Service (Port 8003)"]
+    end
+
+    subgraph SecretLayer["Secret Abstraction Layer (Phase 8)"]
+        SP["Unified SecretProvider<br/>(apps/api/secrets.py)"]
+        Vault[("HashiCorp Vault<br/>KV v2 (Port 8200)")]
+        AWS[("AWS Secrets Manager<br/>(boto3 API)")]
+        ENV[("Environment Variables<br/>(.env / os.environ)")]
+    end
+
+    subgraph PersistenceLayer["Enterprise Data & Caching Tier (Phase 9)"]
+        Redis[("Redis 7 Cache<br/>- Session History (TTL 2h)<br/>- Circuit Breaker State (300s window)<br/>- HITL Priority Queue (ZSET)")]
+        Postgres[("PostgreSQL 16 DB<br/>- trust_events (JSONB)<br/>- hitl_reviews (State Machine)<br/>- audit_log (GDPR Articles 15/17/20)<br/>- Alembic Migrations")]
+    end
+
+    ClientTier -->|HTTP / REST| GW
+    VoiceClient -->|WebRTC Audio| GW
+    GW -->|Inbound / Outbound Scan| Guard
+    GW -->|Sub-15ms Retrieval| Moss
+    GW -->|Groundedness / Risk / HITL| Eval
+
+    GW -.->|Fetch Credentials| SP
+    SP --> Vault
+    SP --> AWS
+    SP --> ENV
+
+    GW -->|Sliding Cache & CB Trip Check| Redis
+    GW -->|Durable Telemetry & Audit Write| Postgres
+    Eval -.->|Trip Feedback Loop| Redis
+    Eval -.->|Escalate HITL Review| Postgres
+```
+
+### 7.1 Architecture Roles & Invariants
+
+1. **HashiCorp Vault & AWS Secrets Manager (Phase 8)**
+   - All critical secrets (`GROQ_API_KEY`, `ENCRYPTION_KEY`, `LIVEKIT_API_KEY`, `POSTGRES_DSN`, `REDIS_URL`) are loaded dynamically through `apps/api/secrets.py`.
+   - In-process caching avoids N+1 secret fetches; `invalidate_cache()` enables zero-downtime key rotation.
+   - Dev-mode HashiCorp Vault is bundled in `docker-compose.yml` with auto-seeding via `scripts/vault-init.sh`.
+
+2. **Redis 7 Session Cache & Circuit Breaker (Phase 9)**
+   - `session:{session_id}:history`: Sliding 2-hour TTL cache capped at 50 turns.
+   - `circuit_breaker:{agent_id}`: Rolling 300-second window tracking consecutive trust failures. Reaching threshold = 3 immediately trips the circuit, fast-failing outbound agent queries with HTTP 503.
+   - `hitl_queue:pending`: Sorted set ordering human-in-the-loop review escalations by urgency score.
+
+3. **PostgreSQL 16 Relational Persistence (Phase 9)**
+   - Managed via Alembic (`alembic upgrade head`) with immutable UUID keys and UTC timestamps.
+   - Stores full telemetry in `trust_events`, reviewer decision lifecycle in `hitl_reviews`, and tamper-evident compliance audit records in `audit_log`.
+   - Unhindered offline development: every data operation features zero-crash fallback to in-memory stores if databases are offline.
+
+---
+
 *TrustMoss — Built for the YC Fall 2026 x Moss Zero Latency Builder Sprint.*

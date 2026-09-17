@@ -61,3 +61,17 @@ pip-audit-dev.json
 pip-audit-report.json
 .pytest_cache/
 *.pytest_tmp
+
+# Database, Cache & Migrations
+*.sqlite3
+*.db
+dump.rdb
+redis.log
+postgres-data/
+migrations/__pycache__/
+
+# Secrets & Security Tokens
+.vault-token
+*.pem
+*.key
+*.pfx
