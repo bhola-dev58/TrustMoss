@@ -182,38 +182,70 @@ jobs:
           path: bandit-report.json
           retention-days: 30
 
-      - name: pip-audit — supply chain CVE scan
+      - name: pip-audit — supply chain CVE scan (BLOCKING gate)
         run: |
+          # Install both requirement sets so all transitive deps are scanned
           pip install -r apps/api/requirements.txt
+          pip install -r apps/api/requirements-dev.txt
+
+          # Scan production deps — write JSON report for upload artifact
           pip-audit \
             --requirement apps/api/requirements.txt \
             --format json \
-            --output pip-audit-report.json \
-            --ignore-vuln PYSEC-2024-232 || true
-          # Surface any CRITICAL / HIGH CVEs
-          python - <<'EOF'
+            --output pip-audit-prod.json
+
+          # Scan dev/test deps — separate report
+          pip-audit \
+            --requirement apps/api/requirements-dev.txt \
+            --format json \
+            --output pip-audit-dev.json
+
+          # Merge both reports and fail if any patchable CVEs found
+          python3 - <<'EOF'
           import json, sys
-          try:
-              with open("pip-audit-report.json") as f:
-                  report = json.load(f)
-          except Exception:
-              print("pip-audit report not generated — no known vulnerabilities found.")
-              sys.exit(0)
-          vulns = report.get("dependencies", [])
-          critical = [v for dep in vulns for v in dep.get("vulns", [])
-                      if v.get("fix_versions")]
-          if critical:
-              print(f"WARNING: {len(critical)} patchable vulnerabilities found. Review and update.")
-              for v in critical[:10]:
-                  print(f"  [{v['id']}] {v['description'][:80]}")
+
+          all_vulns = []
+          for report_path in ["pip-audit-prod.json", "pip-audit-dev.json"]:
+              try:
+                  with open(report_path) as f:
+                      report = json.load(f)
+                  deps = report.get("dependencies", [])
+                  for dep in deps:
+                      for v in dep.get("vulns", []):
+                          all_vulns.append({
+                              "package": dep.get("name"),
+                              "id": v.get("id"),
+                              "description": v.get("description", "")[:100],
+                              "fix_versions": v.get("fix_versions", []),
+                              "source": report_path,
+                          })
+              except FileNotFoundError:
+                  print(f"Report {report_path} not found — skipping.")
+
+          patchable = [v for v in all_vulns if v["fix_versions"]]
+          unpatched = [v for v in all_vulns if not v["fix_versions"]]
+
+          if unpatched:
+              print(f"INFO: {len(unpatched)} vulnerability(ies) with no fix available (informational only):")
+              for v in unpatched[:5]:
+                  print(f"  [{v['id']}] {v['package']} — {v['description']}")
+
+          if patchable:
+              print(f"FAIL: {len(patchable)} patchable vulnerability(ies) found — update dependencies:")
+              for v in patchable:
+                  print(f"  [{v['id']}] {v['package']} — fix versions: {v['fix_versions']}")
+                  print(f"    {v['description']}")
+              sys.exit(1)
           else:
-              print("PASS: No patchable vulnerabilities found in dependency tree.")
+              print(f"PASS: 0 patchable vulnerabilities found across {len(all_vulns)} total findings.")
           EOF
 
-      - name: Upload pip-audit report artifact
+      - name: Upload pip-audit reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pip-audit-report
-          path: pip-audit-report.json
+          name: pip-audit-reports
+          path: |
+            pip-audit-prod.json
+            pip-audit-dev.json
           retention-days: 30

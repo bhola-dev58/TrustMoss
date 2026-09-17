@@ -1,0 +1,358 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TrustMoss — Automated Release & Container Registry Push
+#
+#  Triggers: push to main (merge) OR a semver Git tag push (v*)
+#
+#  What this does:
+#    1. Builds all 6 production Docker images (5 backend + 1 web)
+#    2. Pushes to GitHub Container Registry (ghcr.io) — primary registry
+#    3. Optionally pushes to Docker Hub if DOCKER_USERNAME secret is set
+#    4. Creates a GitHub Release with auto-generated changelog
+#
+#  Image tags applied per push:
+#    - ghcr.io/<owner>/trustmoss-<service>:latest
+#    - ghcr.io/<owner>/trustmoss-<service>:sha-<short-sha>
+#    - ghcr.io/<owner>/trustmoss-<service>:<semver>   (only when a v* tag is pushed)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Release — Build · Tag · Push · GitHub Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"    # e.g. v1.0.0, v2.3.1 — triggers a versioned release
+
+# Prevent concurrent releases clobbering each other
+concurrency:
+  group: ${{ github.workflow }}-release
+  cancel-in-progress: false    # Never cancel an in-flight release
+
+permissions:
+  contents: write       # Required to create GitHub Releases and tags
+  packages: write       # Required to push to ghcr.io
+  id-token: write       # Required for OIDC attestation (future: cosign signing)
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Determine Release Version & Metadata
+  # Resolves the version string used to tag images and the GitHub Release.
+  # ─────────────────────────────────────────────────────────────────────────
+  release-metadata:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+      is_tagged_release: ${{ steps.version.outputs.is_tagged_release }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # Full history needed for changelog generation
+
+      - name: Resolve version & short SHA
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # Semver tag push — strip the leading 'v'
+            VERSION="${GITHUB_REF#refs/tags/}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "is_tagged_release=true" >> "$GITHUB_OUTPUT"
+            echo "Release version: ${VERSION} (tagged)"
+          else
+            # Main branch push — use rolling sha-based version
+            VERSION="sha-${SHORT_SHA}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "is_tagged_release=false" >> "$GITHUB_OUTPUT"
+            echo "Release version: ${VERSION} (sha-based)"
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Build & Push Backend Service Images (Parallel Matrix)
+  # Pushes 5 service images to ghcr.io in parallel.
+  # Each image gets: latest, sha-<short>, and semver (if tagged).
+  # ─────────────────────────────────────────────────────────────────────────
+  push-backend:
+    name: Push ${{ matrix.service }} image
+    runs-on: ubuntu-latest
+    needs: [release-metadata]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: trustmoss-gateway
+            target: gateway
+          - service: trustmoss-guardrails
+            target: guardrails
+          - service: trustmoss-moss-service
+            target: moss
+          - service: trustmoss-evaluation
+            target: evaluation
+          - service: trustmoss-voice-agent
+            target: voice-agent
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}    # Automatic — no secret setup needed
+
+      - name: Log in to Docker Hub (optional — only if secret is configured)
+        if: ${{ secrets.DOCKER_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Generate image tags & labels (docker/metadata-action)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}
+          tags: |
+            # Always push :latest on main branch merges
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # Always push sha-<short> tag
+            type=sha,prefix=sha-,format=short
+            # Push semver tags only on v* tag pushes (e.g. v1.2.3)
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.title=TrustMoss ${{ matrix.service }}
+            org.opencontainers.image.description=Enterprise AI Agent Reliability & Security Gateway
+            org.opencontainers.image.vendor=TrustMoss
+            org.opencontainers.image.version=${{ needs.release-metadata.outputs.version }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/Dockerfile
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          provenance: false    # Disable provenance manifest to keep single-arch image clean
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Build & Push Web Image (Next.js 14 Standalone)
+  # ─────────────────────────────────────────────────────────────────────────
+  push-web:
+    name: Push Next.js web image
+    runs-on: ubuntu-latest
+    needs: [release-metadata]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub (optional)
+        if: ${{ secrets.DOCKER_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Generate web image tags & labels
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/trustmoss-web
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.title=TrustMoss Web UI
+            org.opencontainers.image.description=Next.js 14 App Router Reliability HUD & Operations Console
+            org.opencontainers.image.version=${{ needs.release-metadata.outputs.version }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+            NEXT_TELEMETRY_DISABLED=1
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          provenance: false
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Create GitHub Release with Auto-Changelog
+  # Only runs on semver tag pushes (v*.*.*).
+  # On main branch pushes: creates a rolling "edge" pre-release instead.
+  # ─────────────────────────────────────────────────────────────────────────
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [release-metadata, push-backend, push-web]
+
+    steps:
+      - name: Checkout repository (full history for changelog)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog from commit messages
+        id: changelog
+        run: |
+          # Get commits since last tag (or all commits if no prior tag)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LAST_TAG" ]; then
+            RANGE="${LAST_TAG}..HEAD"
+            echo "Generating changelog from ${LAST_TAG} to HEAD"
+          else
+            RANGE="HEAD"
+            echo "No previous tag found — generating full commit changelog"
+          fi
+
+          # Build structured changelog grouped by commit type
+          python3 - <<'PYEOF'
+          import subprocess, sys, re
+
+          range_arg = "$RANGE"
+          result = subprocess.run(
+              ["git", "log", range_arg, "--pretty=format:%H|%s|%an"],
+              capture_output=True, text=True
+          )
+
+          sections = {
+              "feat": ("🚀 New Features", []),
+              "fix": ("🐛 Bug Fixes", []),
+              "perf": ("⚡ Performance", []),
+              "security": ("🔒 Security", []),
+              "refactor": ("♻️ Refactoring", []),
+              "docs": ("📚 Documentation", []),
+              "test": ("🧪 Tests", []),
+              "ci": ("🏗️ CI/CD", []),
+              "chore": ("🔧 Chores", []),
+              "build": ("📦 Build", []),
+          }
+          other = []
+
+          for line in result.stdout.strip().splitlines():
+              if not line:
+                  continue
+              sha, subject, author = line.split("|", 2)
+              short_sha = sha[:7]
+              matched = False
+              for prefix, (_, items) in sections.items():
+                  if re.match(rf"^{prefix}(\(.+\))?:", subject, re.IGNORECASE):
+                      items.append(f"- {subject} ([`{short_sha}`](../commit/{sha}))")
+                      matched = True
+                      break
+              if not matched:
+                  other.append(f"- {subject} ([`{short_sha}`](../commit/{sha}))")
+
+          lines = ["## What's Changed\n"]
+          for prefix, (title, items) in sections.items():
+              if items:
+                  lines.append(f"### {title}")
+                  lines.extend(items)
+                  lines.append("")
+
+          if other:
+              lines.append("### Other Changes")
+              lines.extend(other)
+
+          changelog = "\n".join(lines)
+          print(changelog)
+
+          with open("CHANGELOG_RELEASE.md", "w") as f:
+              f.write(changelog)
+          PYEOF
+
+          echo "Changelog written to CHANGELOG_RELEASE.md"
+
+      - name: Append Docker pull commands to release notes
+        run: |
+          VERSION="${{ needs.release-metadata.outputs.version }}"
+          SHORT_SHA="${{ needs.release-metadata.outputs.short_sha }}"
+          OWNER="${{ github.repository_owner }}"
+
+          cat >> CHANGELOG_RELEASE.md << EOF
+
+          ---
+
+          ## 🐳 Docker Images
+
+          Pull the latest images from GitHub Container Registry:
+
+          \`\`\`bash
+          # Backend services
+          docker pull ghcr.io/${OWNER}/trustmoss-gateway:${VERSION}
+          docker pull ghcr.io/${OWNER}/trustmoss-guardrails:${VERSION}
+          docker pull ghcr.io/${OWNER}/trustmoss-moss-service:${VERSION}
+          docker pull ghcr.io/${OWNER}/trustmoss-evaluation:${VERSION}
+          docker pull ghcr.io/${OWNER}/trustmoss-voice-agent:${VERSION}
+
+          # Web UI
+          docker pull ghcr.io/${OWNER}/trustmoss-web:${VERSION}
+          \`\`\`
+
+          **Commit:** \`${SHORT_SHA}\` | **Full SHA:** \`${{ github.sha }}\`
+          EOF
+
+      - name: Create GitHub Release (tagged — versioned release)
+        if: ${{ needs.release-metadata.outputs.is_tagged_release == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "TrustMoss ${{ github.ref_name }}"
+          body_path: CHANGELOG_RELEASE.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false    # We use our own changelog above
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (main push — rolling edge release)
+        if: ${{ needs.release-metadata.outputs.is_tagged_release == 'false' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "edge"
+          name: "TrustMoss Edge (latest main)"
+          body_path: CHANGELOG_RELEASE.md
+          draft: false
+          prerelease: true      # Mark as pre-release so it doesn't appear as "latest"
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,292 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TrustMoss — Docker Build & Integration Smoke Test
+#
+#  Triggers on any PR or push that touches:
+#    - docker-compose.yml
+#    - services/** (microservice source or Dockerfile)
+#    - apps/api/** (gateway source or Dockerfile)
+#    - apps/web/** (Next.js source or Dockerfile)
+#
+#  Jobs:
+#    1. build-backend  — builds all 5 Python service targets in parallel
+#    2. build-web      — builds the Next.js 14 web image
+#    3. smoke-test     — starts the full stack and hits every /health endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: CI — Docker Build & Integration Smoke Test
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "docker-compose.yml"
+      - "services/**"
+      - "apps/api/**"
+      - "apps/web/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "docker-compose.yml"
+      - "services/**"
+      - "apps/api/**"
+      - "apps/web/**"
+
+# Cancel in-progress runs for the same branch on a new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Build All Python Backend Service Images
+  # Builds 5 multi-stage targets from services/Dockerfile in parallel using
+  # Docker Buildx's --target flag.
+  # ─────────────────────────────────────────────────────────────────────────
+  build-backend:
+    name: Build backend images (${{ matrix.target }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: gateway
+            image: trustmoss-gateway
+          - target: guardrails
+            image: trustmoss-guardrails
+          - target: moss
+            image: trustmoss-moss-service
+          - target: evaluation
+            image: trustmoss-evaluation
+          - target: voice-agent
+            image: trustmoss-voice-agent
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.target }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/Dockerfile
+          target: ${{ matrix.target }}
+          tags: ${{ matrix.image }}:ci-${{ github.sha }}
+          push: false          # build only — push happens in release.yml on merge to main
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          # Export as Docker daemon image so smoke-test job can load it
+          load: true
+
+      - name: Verify image was built
+        run: docker image inspect ${{ matrix.image }}:ci-${{ github.sha }} --format '{{.Id}}'
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2 — Build Next.js Web Image
+  # Separate job so a web build failure doesn't block backend smoke tests.
+  # Uses Next.js standalone output (output: 'standalone' in next.config.mjs).
+  # ─────────────────────────────────────────────────────────────────────────
+  build-web:
+    name: Build Next.js web image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Next.js web image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/web
+          file: apps/web/Dockerfile
+          tags: trustmoss-web:ci-${{ github.sha }}
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8000
+            NEXT_TELEMETRY_DISABLED=1
+
+      - name: Verify web image was built
+        run: docker image inspect trustmoss-web:ci-${{ github.sha }} --format '{{.RepoTags}}'
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3 — Full Stack Integration Smoke Test
+  # Starts all services via docker compose, waits for healthchecks to pass,
+  # then probes each /health endpoint to confirm expected JSON response.
+  # voice-agent is excluded (no HTTP port — it's a WebRTC worker process).
+  # ─────────────────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Integration smoke test (full stack)
+    runs-on: ubuntu-latest
+    needs: [build-backend]    # Only run if all backend images built successfully
+
+    env:
+      # ── Stub .env for docker compose — no real credentials in CI ──────────
+      # Services that call external APIs (Groq, Moss, LiveKit) gracefully
+      # degrade on /health — they return 200 with service metadata regardless.
+      GROQ_API_KEY: "ci-stub-groq-key"
+      GROQ_MODEL: "llama-3.1-8b-instant"
+      MOSS_API_KEY: "ci-stub-moss-key"
+      MOSS_API_URL: "http://localhost:9999"
+      LIVEKIT_URL: "wss://ci-stub.livekit.cloud"
+      LIVEKIT_API_KEY: "ci-stub-lk-key"
+      LIVEKIT_API_SECRET: "ci-stub-lk-secret"
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      JWT_SECRET: "ci-test-jwt-secret-not-for-production"
+      AUTH_STRICT: "false"
+      LOG_LEVEL: "warning"
+      API_PORT: "8000"
+      WEB_PORT: "3000"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create stub apps/api/.env for docker compose
+        # docker-compose.yml mounts apps/api/.env — create it with CI stubs
+        run: |
+          cat > apps/api/.env << 'EOF'
+          GROQ_API_KEY=ci-stub-groq-key
+          GROQ_MODEL=llama-3.1-8b-instant
+          MOSS_API_KEY=ci-stub-moss-key
+          MOSS_API_URL=http://localhost:9999
+          LIVEKIT_URL=wss://ci-stub.livekit.cloud
+          LIVEKIT_API_KEY=ci-stub-lk-key
+          LIVEKIT_API_SECRET=ci-stub-lk-secret
+          ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
+          JWT_SECRET=ci-test-jwt-secret-not-for-production
+          AUTH_STRICT=false
+          LOG_LEVEL=warning
+          EOF
+
+      - name: Build all service images via docker compose
+        # Uses docker compose's own build to match exact production build path
+        run: docker compose build --no-cache
+
+      - name: Start all services (detached)
+        run: docker compose up -d
+
+      - name: Wait for all services to be healthy (max 120s)
+        # Polls docker compose ps until all services report "healthy" or times out
+        run: |
+          echo "Waiting for services to become healthy..."
+          TIMEOUT=120
+          ELAPSED=0
+          INTERVAL=5
+
+          while true; do
+            # Count services that are NOT healthy yet
+            UNHEALTHY=$(docker compose ps --format json \
+              | python3 -c "
+          import sys, json
+          lines = sys.stdin.read().strip()
+          # docker compose ps --format json emits one JSON object per line
+          services = [json.loads(l) for l in lines.splitlines() if l.strip()]
+          not_healthy = [s['Name'] for s in services
+                         if s.get('Health', '') not in ('healthy', '')
+                         and s.get('Name', '') != 'trustmoss-voice-agent']
+          print('\n'.join(not_healthy))
+          " 2>/dev/null || echo "")
+
+            if [ -z "$UNHEALTHY" ]; then
+              echo "All services are healthy."
+              break
+            fi
+
+            if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+              echo "TIMEOUT: The following services did not become healthy in ${TIMEOUT}s:"
+              echo "$UNHEALTHY"
+              docker compose ps
+              docker compose logs --tail=50
+              exit 1
+            fi
+
+            echo "Still waiting for: $UNHEALTHY (${ELAPSED}s elapsed)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+      - name: Show final service status
+        run: docker compose ps
+
+      - name: Smoke test — Gateway /health (port 8000)
+        run: |
+          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:8000/health)
+          echo "Gateway response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert data.get('service') == 'trustmoss-gateway', f'Unexpected service name: {data}'
+          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          print('PASS: Gateway /health OK')
+          "
+
+      - name: Smoke test — Guardrails /health (port 8001)
+        run: |
+          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:8001/health)
+          echo "Guardrails response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert data.get('service') == 'guardrails-service', f'Unexpected: {data}'
+          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          print('PASS: Guardrails /health OK')
+          "
+
+      - name: Smoke test — Moss /health (port 8002)
+        run: |
+          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:8002/health)
+          echo "Moss response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert data.get('service') == 'moss-service', f'Unexpected: {data}'
+          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          print('PASS: Moss /health OK')
+          "
+
+      - name: Smoke test — Evaluation /health (port 8003)
+        run: |
+          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:8003/health)
+          echo "Evaluation response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert data.get('service') == 'evaluation-service', f'Unexpected: {data}'
+          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          print('PASS: Evaluation /health OK')
+          "
+
+      - name: Smoke test — Gateway auth token endpoint
+        # Verify the JWT issuance pipeline is alive end-to-end
+        run: |
+          RESPONSE=$(curl -sf --retry 3 \
+            -X POST http://localhost:8000/api/auth/token \
+            -H "Content-Type: application/json" \
+            -d '{"client_id":"ci-smoke-agent","client_secret":"secret123","role":"agent"}')
+          echo "Auth token response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert 'access_token' in data, f'Missing access_token: {data}'
+          assert data.get('role') == 'agent', f'Wrong role: {data}'
+          print('PASS: Auth /api/auth/token issued a valid JWT')
+          "
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Teardown — stop and remove all containers
+        if: always()
+        run: docker compose down -v --remove-orphans

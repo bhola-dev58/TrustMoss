@@ -56,6 +56,8 @@ coverage.xml
 .coverage
 htmlcov/
 bandit-report.json
+pip-audit-prod.json
+pip-audit-dev.json
 pip-audit-report.json
 .pytest_cache/
 *.pytest_tmp

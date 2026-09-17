@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  TrustMoss — Dependency Review (Supply Chain Security Gate)
+#
+#  Runs on every Pull Request to:
+#    1. Detect newly introduced vulnerable dependencies (diff-aware)
+#    2. Block PRs that add packages with known CVEs (CRITICAL/HIGH)
+#    3. Surface findings natively in GitHub's Security tab & PR checks UI
+#
+#  Uses GitHub's official dependency-review-action which integrates with the
+#  GitHub Advisory Database (GHSA) — no external API keys required.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Security — Dependency Review
+
+on:
+  pull_request:
+    branches: [main, develop]
+    # Only run when dependency manifests change — skip for docs-only PRs
+    paths:
+      - "apps/api/requirements.txt"
+      - "apps/api/requirements-dev.txt"
+      - "apps/web/package.json"
+      - "apps/web/package-lock.json"
+      - "services/Dockerfile"
+      - "apps/web/Dockerfile"
+
+permissions:
+  contents: read
+  pull-requests: write    # Required to post review comments on the PR
+
+jobs:
+  dependency-review:
+    name: Dependency vulnerability review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: GitHub Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          # Block PRs that introduce vulnerabilities at CRITICAL or HIGH severity
+          fail-on-severity: high
+
+          # Allow these specific known advisory IDs if they have no fix yet.
+          # Format: GHSA-xxxx-xxxx-xxxx
+          # Add entries here when a vulnerability has no available patch.
+          allow-ghsas: ""
+
+          # Warn (but don't block) on packages with licenses not on this list
+          deny-licenses: "GPL-2.0, GPL-3.0, AGPL-3.0"
+
+          # Post a summary comment on the PR with all findings
+          comment-summary-in-pr: always
+
+          # Vulnerability DB: use GitHub Advisory Database (default)
+          # This covers PyPI (pip), npm, Docker, GitHub Actions advisories
+          vulnerability-check: true
+          license-check: true

@@ -209,9 +209,107 @@ bandit -r apps/api/ services/ -ll \
 
 ---
 
+## Step 10 — Simulate Docker Integration Smoke Test (Task 7.2)
+
+This mirrors exactly what `.github/workflows/docker-integration.yml` runs:
+
+```bash
+# 1. Build all backend service images (5 targets in parallel mentally — runs serially locally)
+docker compose build --no-cache
+
+# 2. Start all services
+docker compose up -d
+
+# 3. Wait for healthy status (poll every 5s)
+docker compose ps
+
+# 4. Smoke test each health endpoint
+curl -sf http://localhost:8000/health | python3 -m json.tool   # Gateway
+curl -sf http://localhost:8001/health | python3 -m json.tool   # Guardrails
+curl -sf http://localhost:8002/health | python3 -m json.tool   # Moss
+curl -sf http://localhost:8003/health | python3 -m json.tool   # Evaluation
+
+# 5. Smoke test JWT auth endpoint (end-to-end pipeline check)
+curl -sf -X POST http://localhost:8000/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"manual-smoke","client_secret":"secret123","role":"agent"}' \
+  | python3 -m json.tool
+
+# 6. Teardown
+docker compose down -v --remove-orphans
+```
+
+**Expected results:**
+- All 4 `/health` responses: `{"service": "<name>", "status": "ok", ...}`
+- Auth endpoint: JSON containing `access_token` and `"role": "agent"`
+
+---
+
+## Step 11 — Trigger a Versioned Release (Task 7.3)
+
+Releases are **automated** — just push a semver tag and GitHub Actions does the rest.
+
+```bash
+# 1. Make sure you are on main and it is clean
+git checkout main
+git pull origin main
+
+# 2. Tag the release (bump version as appropriate)
+git tag v1.0.0 -m "Release v1.0.0 — Production readiness: CI/CD, Secrets, Database"
+
+# 3. Push the tag — this triggers release.yml automatically
+git push origin v1.0.0
+```
+
+**What happens automatically:**
+1. All 6 Docker images built and pushed to `ghcr.io/<owner>/trustmoss-*:v1.0.0`
+2. Images also tagged `:1.0`, `:1`, and `:latest`
+3. GitHub Release created with structured changelog (feat/fix/perf/security grouped)
+
+**To create a rolling edge release (no tag needed):**
+Any push to `main` automatically creates/updates a `edge` pre-release with current images tagged `sha-<short>`.
+
+**Pull images after release:**
+```bash
+docker pull ghcr.io/bhola-dev58/trustmoss-gateway:latest
+docker pull ghcr.io/bhola-dev58/trustmoss-web:latest
+# (repeat for other services)
+```
+
+---
+
+## Step 12 — Run Supply Chain Security Audit Locally (Task 7.4)
+
+```bash
+source apps/api/.venv/bin/activate
+
+# Scan production dependencies for CVEs
+pip-audit --requirement apps/api/requirements.txt --format json --output pip-audit-prod.json
+cat pip-audit-prod.json | python3 -m json.tool
+
+# Scan dev/test dependencies for CVEs
+pip-audit --requirement apps/api/requirements-dev.txt --format json --output pip-audit-dev.json
+cat pip-audit-dev.json | python3 -m json.tool
+
+# Quick human-readable scan (no JSON)
+pip-audit --requirement apps/api/requirements.txt
+```
+
+**Expected result:** `No known vulnerabilities found` for both reports.
+
+> **Note:** Dependabot PRs will appear automatically in GitHub each Monday–Thursday based on `.github/dependabot.yml`. No manual action needed.
+
+---
+
 ## Architecture Reference
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 23-node system topology
 - [`docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`](docs/REQUIREMENTS_TRACEABILITY_MATRIX.md) — FR/MAC/test traceability
 - [`docs/PROMPT_CATALOG.md`](docs/PROMPT_CATALOG.md) — CRISPE prompt template registry
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — CI pipeline definition
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — Core CI pipeline (pytest + ruff + bandit + pip-audit)
+- [`.github/workflows/docker-integration.yml`](.github/workflows/docker-integration.yml) — Docker build + integration smoke test
+- [`.github/workflows/release.yml`](.github/workflows/release.yml) — Automated release & GHCR push
+- [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) — PR supply chain security gate
+- [`.github/dependabot.yml`](.github/dependabot.yml) — Automated dependency update PRs
+- [`.github/SECRETS_SETUP.md`](.github/SECRETS_SETUP.md) — GitHub secrets configuration guide
+
