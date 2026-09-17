@@ -1,15 +1,69 @@
 # ═══════════════════════════════════════════════════════════
 #  TrustMoss — Decoupled Microservices Docker Compose
 #  Services:
-#    1. trustmoss-gateway       (Port 8000 - Ingress / Auth / Dispatch)
-#    2. guardrails-service      (Port 8001 - Inbound & Outbound Safety)
-#    3. moss-service            (Port 8002 - Moss Sub-15ms Retrieval)
-#    4. evaluation-service      (Port 8003 - Groundedness / Circuit Breaker / HITL / Registry)
-#    5. livekit-voice-agent     (Worker    - Autonomous WebRTC Voice Agent)
-#    6. trustmoss-web           (Port 3000 - Next.js 14+ App Router UI)
+#    0a. postgres          (Port 5432 - Primary persistent store)
+#    0b. redis             (Port 6379 - Session cache + circuit breaker)
+#    1.  trustmoss-gateway (Port 8000 - Ingress / Auth / Dispatch)
+#    2.  guardrails-service (Port 8001 - Inbound & Outbound Safety)
+#    3.  moss-service      (Port 8002 - Moss Sub-15ms Retrieval)
+#    4.  evaluation-service (Port 8003 - Groundedness / Circuit Breaker / HITL)
+#    5.  livekit-voice-agent (Worker  - Autonomous WebRTC Voice Agent)
+#    6.  trustmoss-web    (Port 3000 - Next.js 14+ App Router UI)
+#    4a. vault             (Port 8200 - HashiCorp Vault Secret Provider)
 # ═══════════════════════════════════════════════════════════
 
 services:
+
+  # ─────────────────────────────────────────────
+  # 0a. PostgreSQL 16 — Primary Persistent Store
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: trustmoss-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trustmoss}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trustmoss}
+      POSTGRES_DB: ${POSTGRES_DB:-trustmoss}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - trustmoss-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trustmoss} -d ${POSTGRES_DB:-trustmoss}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 0b. Redis 7 — Session Cache & Circuit Breaker
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: trustmoss-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    volumes:
+      - trustmoss-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - trustmoss-internal
 
   # ─────────────────────────────────────────────
   # 1. Guardrails Microservice (Inbound & Outbound Safety)
@@ -81,12 +135,41 @@ services:
       - GROUNDEDNESS_THRESHOLD=${GROUNDEDNESS_THRESHOLD:-0.85}
       - RELEVANCE_THRESHOLD=${RELEVANCE_THRESHOLD:-0.70}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
       interval: 20s
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - trustmoss-internal
+
+  # ─────────────────────────────────────────────
+  # 4a. HashiCorp Vault (Dev Mode) — Secret Provider
+  # ─────────────────────────────────────────────
+
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: trustmoss-vault
+    restart: unless-stopped
+    ports:
+      - "8200:8200"                  # Vault API & UI
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "dev-root-token"   # Dev mode only — never use in production
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_LOG_LEVEL: "warn"
+    cap_add:
+      - IPC_LOCK                     # Required by Vault to prevent memory swapping
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://localhost:8200"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - trustmoss-internal
 
@@ -110,12 +193,28 @@ services:
       - MOSS_SERVICE_URL=http://moss-service:8002
       - EVALUATION_SERVICE_URL=http://evaluation-service:8003
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # ── Database Layer Configuration (PostgreSQL & Redis) ────────────────
+      - POSTGRES_DSN=postgresql://${POSTGRES_USER:-trustmoss}:${POSTGRES_PASSWORD:-trustmoss}@postgres:5432/${POSTGRES_DB:-trustmoss}
+      - REDIS_URL=redis://redis:6379/0
+      # ── Secret Provider Configuration (Vault dev mode) ───────────────────
+      # SECRET_PROVIDER defaults to 'env' unless overridden here.
+      # Uncomment the lines below to switch to Vault in docker-compose.
+      # - SECRET_PROVIDER=vault
+      # - VAULT_ADDR=http://vault:8200
+      # - VAULT_TOKEN=dev-root-token
+      # - VAULT_SECRET_PATH=trustmoss
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       guardrails-service:
         condition: service_healthy
       moss-service:
         condition: service_healthy
       evaluation-service:
+        condition: service_healthy
+      vault:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -176,3 +275,12 @@ networks:
     driver: bridge
   trustmoss-internal:
     driver: bridge
+
+# ─────────────────────────────────────────────
+# Named Volumes (persistent data survives container restarts)
+# ─────────────────────────────────────────────
+# Note: Vault dev mode does NOT persist data between restarts by design.
+# Vault data is re-seeded on startup via scripts/vault-init.sh.
+volumes:
+  trustmoss-pgdata:      # Reserved for Phase 9 PostgreSQL
+  trustmoss-redisdata:   # Reserved for Phase 9 Redis

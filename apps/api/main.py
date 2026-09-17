@@ -30,10 +30,13 @@ from pydantic import BaseModel
 
 import auth
 import crypto
+import database
 import explainability
 import livekit_service
 import moss_client
 import retention
+import secrets as _secrets
+import session_store
 import voice_gateway
 from guardrails import groundedness, pii_scan, relevance
 from prompts.catalog import catalog, catalog_as_markdown, get_catalog_entry
@@ -48,8 +51,9 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+# ── Secret Resolution via unified provider (Vault | AWS | ENV) ────────────────
+GROQ_API_KEY = _secrets.get_secret("GROQ_API_KEY", "")
+GROQ_MODEL   = _secrets.get_secret("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # Microservice Topology URLs (empty = local colocated execution)
 GUARDRAILS_SERVICE_URL = os.getenv("GUARDRAILS_SERVICE_URL", "").rstrip("/")
@@ -127,6 +131,9 @@ async def lifespan(app: FastAPI):
     await moss_client.init()
     logger.info("Moss client ready. Server accepting requests.")
 
+    # Phase 9: Initialize PostgreSQL connection pool and Redis async client
+    await database.startup()
+
     # Auto-generate PROMPT_CATALOG.md at startup (Task 5.3 — PRD Embedding)
     try:
         import os as _os
@@ -141,6 +148,8 @@ async def lifespan(app: FastAPI):
         logger.warning("Could not write PROMPT_CATALOG.md: %s", _e)
 
     yield
+    # Phase 9: Gracefully close PostgreSQL and Redis pools
+    await database.shutdown()
     logger.info("Shutting down TrustMoss backend.")
 
 
@@ -182,6 +191,8 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
+    session_id: Optional[str] = None
+    agent_id: Optional[str] = "default-agent"
 
 
 class QueryResponse(BaseModel):
@@ -246,6 +257,16 @@ async def query_endpoint(request: QueryRequest):
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
+    agent_id = request.agent_id or "default-agent"
+    session_id = request.session_id or f"sess_{uuid.uuid4().hex[:12]}"
+
+    # Circuit breaker check: trip if agent exceeded failure threshold
+    if await session_store.is_circuit_open(agent_id):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Circuit breaker TRIPPED for agent '{agent_id}'. Intercepted due to repeated trust violations.",
+        )
+
     tracer = Tracer()
     query_id = str(uuid.uuid4())[:8]
 
@@ -298,6 +319,12 @@ async def query_endpoint(request: QueryRequest):
     }
     groundedness_result = eval_result.get("groundedness", {})
 
+    # Circuit breaker trip trigger on failure
+    if trust["verdict"] == "FAIL":
+        cb_res = await session_store.record_trust_failure(agent_id)
+        if cb_res.get("tripped"):
+            eval_result["circuit_breaker_tripped"] = True
+
     # ------------------------------------------------------------------
     # Build response
     # ------------------------------------------------------------------
@@ -336,10 +363,40 @@ async def query_endpoint(request: QueryRequest):
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
-    # Store in session history (keep last 50)
+    # Store in session history (keep last 50 in memory)
     _session_history.append(response)
     if len(_session_history) > 50:
         _session_history.pop(0)
+
+    # Phase 9: Persist to Redis session cache and PostgreSQL audit trail
+    try:
+        await session_store.push_session_event(session_id, response)
+        await session_store.set_session_trust(session_id, trust["verdict"], float(trust.get("score", 0.0)))
+    except Exception as exc:
+        logger.warning("Failed to update session store: %s", exc)
+
+    try:
+        await database.insert_trust_event(
+            session_id=session_id,
+            query_id=query_id,
+            query_text=request.query,
+            answer_text=final_answer,
+            verdict=trust["verdict"],
+            trust_score=float(trust.get("score", 0.0)),
+            trust_color=trust.get("color"),
+            agent_id=agent_id,
+            relevance_result=relevance_result,
+            groundedness_result=groundedness_result,
+            pii_result=pii_result,
+            evaluation_result=eval_result,
+            circuit_breaker_tripped=eval_result.get("circuit_breaker_tripped", False),
+            context_chunks_count=len(context_chunks),
+            top_retrieval_score=top_score,
+            model_used=GROQ_MODEL,
+            latency_ms=int(total_ms),
+        )
+    except Exception as exc:
+        logger.warning("Failed to persist trust_event to database: %s", exc)
 
     # Store explanation for /api/explain/<query_id> look-up
     _explain_store[query_id] = trust_explanation.to_dict()
@@ -404,7 +461,23 @@ async def explain_endpoint(query_id: str, _: dict = Depends(auth.verify_token)):
 # GET /history — session log
 # ---------------------------------------------------------------------------
 @app.get("/history")
-async def history_endpoint():
+async def history_endpoint(session_id: Optional[str] = None):
+    if session_id:
+        redis_hist = await session_store.get_session_history(session_id)
+        if redis_hist:
+            return {
+                "count": len(redis_hist),
+                "session_id": session_id,
+                "queries": list(reversed(redis_hist)),
+            }
+        # Check postgres if redis empty or unavailable
+        db_events = await database.get_trust_events(limit=50, session_id=session_id)
+        if db_events:
+            return {
+                "count": len(db_events),
+                "session_id": session_id,
+                "queries": db_events,
+            }
     return {
         "count": len(_session_history),
         "queries": list(reversed(_session_history)),  # newest first
@@ -553,6 +626,7 @@ async def health():
         "service": "trustmoss-gateway",
         "status": "healthy",
         "version": "0.2.0",
+        "database": await database.health_check(),
         "security": {
             "auth_strict": auth.AUTH_STRICT,
             "owasp_headers_enabled": True,
