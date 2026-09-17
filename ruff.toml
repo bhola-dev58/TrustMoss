@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ruff.toml — TrustMoss Python Linting Configuration
+# Replaces: flake8, isort, pyflakes
+# Docs: https://docs.astral.sh/ruff/configuration/
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Assume Python 3.11 syntax
+target-version = "py311"
+
+# Max line length — consistent with Black's default
+line-length = 120
+
+# Files/dirs to exclude from all checks
+exclude = [
+    ".venv",
+    "__pycache__",
+    ".git",
+    ".pytest_cache",
+    "node_modules",
+    "*.egg-info",
+    "dist",
+    "build",
+]
+
+[lint]
+# Rule sets to enable:
+#   E/W  — pycodestyle (errors + warnings)
+#   F    — pyflakes (unused imports, undefined names)
+#   I    — isort (import order)
+#   N    — pep8-naming
+#   UP   — pyupgrade (modern Python idioms)
+#   S    — bandit (security — subset via ruff)
+select = ["E", "W", "F", "I", "N", "UP", "S"]
+
+ignore = [
+    "S101",   # assert — acceptable in test files
+    "S311",   # random module — not used for cryptography in this codebase
+    "S603",   # subprocess with variable input — not present
+    "S607",   # partial path for subprocess — not present
+    "E501",   # line too long — managed by formatter, not a hard CI block
+    "UP007",  # Use X | Y for type hints — targeting 3.11 but legacy code present
+]
+
+# Per-file rule overrides
+[lint.per-file-ignores]
+"apps/api/tests/*" = ["S", "N"]   # relax security + naming rules inside test files
+"services/*" = ["N803", "N806"]   # allow non-PEP8 variable names in service files
+
+[lint.isort]
+known-first-party = ["apps", "services"]
+force-sort-within-sections = true
