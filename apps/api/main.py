@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from groq import AsyncGroq
 from pydantic import BaseModel
@@ -534,6 +534,120 @@ async def hitl_records_endpoint(status: Optional[str] = None, limit: int = 50):
         "count": len(records),
         "status_filter": status,
         "items": records,
+    }
+
+
+# ---------------------------------------------------------------------------
+# k6 OSS Scalability & Benchmark Endpoints (Task 4)
+# ---------------------------------------------------------------------------
+import load_test
+
+class CreateLoadTestRequest(BaseModel):
+    name: Optional[str] = None
+    test_type: str = "load"  # load, ramp, stress, spike, soak
+    target: str = "http://localhost:8000/health"
+    vus: int = 50
+    duration: str = "30s"
+    method: str = "GET"
+    headers: Optional[dict] = None
+    body: Optional[str] = None
+
+
+@app.post("/api/load-tests")
+async def create_load_test_endpoint(req: CreateLoadTestRequest):
+    """Create and configure a local k6 scalability benchmark run."""
+    try:
+        load_test.validate_test_config(
+            target_url=req.target,
+            vus=req.vus,
+            duration=req.duration,
+            test_type=req.test_type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    test_id = f"k6-{uuid.uuid4().hex[:8]}"
+    name = req.name or f"{req.test_type.upper()} Benchmark ({req.vus} VUs)"
+
+    await database.insert_load_test_run(
+        test_id=test_id,
+        name=name,
+        test_type=req.test_type,
+        target=req.target,
+        vus=req.vus,
+        duration=req.duration,
+        status="CREATED",
+    )
+
+    return {
+        "id": test_id,
+        "name": name,
+        "test_type": req.test_type,
+        "target": req.target,
+        "vus": req.vus,
+        "duration": req.duration,
+        "status": "CREATED",
+        "k6_engine": load_test.get_k6_version(),
+    }
+
+
+@app.get("/api/load-tests")
+async def list_load_tests_endpoint(limit: int = 50):
+    """List historical k6 benchmark executions."""
+    runs = await database.get_load_test_runs(limit=limit)
+    return {
+        "count": len(runs),
+        "k6_engine": load_test.get_k6_version(),
+        "tests": runs,
+    }
+
+
+@app.get("/api/load-tests/{test_id}")
+async def get_load_test_endpoint(test_id: str):
+    """Retrieve detailed status, latency metrics, and breaking-point diagnosis for a test run."""
+    run = await database.get_load_test_run(test_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Load test run '{test_id}' not found.")
+    return run
+
+
+@app.post("/api/load-tests/{test_id}/start")
+async def start_load_test_endpoint(test_id: str, background_tasks: BackgroundTasks):
+    """Trigger execution of an existing configured load test run."""
+    run = await database.get_load_test_run(test_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Load test run '{test_id}' not found.")
+    if run.get("status") == "RUNNING":
+        raise HTTPException(status_code=400, detail=f"Load test '{test_id}' is already running.")
+
+    background_tasks.add_task(
+        load_test.run_load_test,
+        test_id=test_id,
+        target_url=run["target"],
+        vus=run["vus"],
+        duration=run["duration"],
+        test_type=run.get("test_type", "load"),
+    )
+
+    return {
+        "id": test_id,
+        "status": "RUNNING",
+        "message": f"k6 load test '{test_id}' launched asynchronously.",
+    }
+
+
+@app.post("/api/load-tests/{test_id}/cancel")
+async def cancel_load_test_endpoint(test_id: str):
+    """Terminate an active load test run."""
+    run = await database.get_load_test_run(test_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Load test run '{test_id}' not found.")
+
+    await load_test.cancel_load_test(test_id)
+    return {
+        "id": test_id,
+        "status": "CANCELLED",
+        "message": f"Load test '{test_id}' terminated by operator.",
     }
 
 
