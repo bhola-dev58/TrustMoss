@@ -233,17 +233,27 @@ async def call_llm(query: str, context_chunks: list) -> str:
     system_prompt, user_message = render_orchestrator_prompt(query, context_chunks)
 
     meta = ORCHESTRATOR_V1.metadata
-    response = await groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        max_tokens=meta.get("max_tokens", 512),
-        temperature=meta.get("temperature", 0.2),
-    )
-
-    return response.choices[0].message.content.strip()
+    try:
+        response = await groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=meta.get("max_tokens", 512),
+            temperature=meta.get("temperature", 0.2),
+        )
+        content = response.choices[0].message.content.strip()
+        if content:
+            return content
+        raise ValueError("Groq returned an empty response.")
+    except Exception as e:
+        logger.warning("Groq LLM call failed (%s). Falling back to deterministic grounded response.", e)
+        for chunk in context_chunks:
+            text = (chunk.get("text") or "").strip()
+            if text:
+                return text
+        return "I'm unable to complete this request right now. Please try again shortly."
 
 
 # ---------------------------------------------------------------------------
