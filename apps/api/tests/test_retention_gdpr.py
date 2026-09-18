@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from retention import (
@@ -99,12 +100,26 @@ class TestRetentionManagerCore(unittest.TestCase):
 
 class TestVoiceGatewayRetentionIntegration(unittest.TestCase):
     def test_voice_turn_registration_and_erasure(self):
-        res = asyncio.run(voice_gateway.process_voice_turn(
-            room_name="gdpr-test-room",
-            participant_identity="patient-jane-doe",
-            transcript="Check on prescription dosage for Jane Doe",
-            top_k=2,
-        ))
+        # Mock Groq client and moss_client so no real API calls are made
+        mock_choice = AsyncMock()
+        mock_choice.message.content = "Check prescription dosage with your doctor."
+        mock_completion = AsyncMock()
+        mock_completion.choices = [mock_choice]
+
+        with patch("moss_client.retrieve", new_callable=AsyncMock) as mock_retrieve, \
+             patch("voice_gateway._voice_groq_client") as mock_groq:
+            mock_retrieve.return_value = {
+                "chunks": [{"id": "c1", "text": "Prescription dosage information.", "score": 0.80}],
+                "top_score": 0.80,
+            }
+            mock_groq.chat.completions.create = AsyncMock(return_value=mock_completion)
+
+            res = asyncio.run(voice_gateway.process_voice_turn(
+                room_name="gdpr-test-room",
+                participant_identity="patient-jane-doe",
+                transcript="Check on prescription dosage for Jane Doe",
+                top_k=2,
+            ))
         self.assertIn("verdict", res)
 
         # Check session recorded participant

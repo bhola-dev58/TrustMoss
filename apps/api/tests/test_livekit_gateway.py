@@ -79,13 +79,18 @@ class TestVoiceGateway(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(t["stage"] == "webrtc_ingress" for t in result["latency_trace"]))
 
     @patch("moss_client.retrieve", new_callable=AsyncMock)
-    @patch("main.call_llm", new_callable=AsyncMock)
-    async def test_process_voice_turn_safe_flow(self, mock_llm, mock_retrieve):
+    @patch("voice_gateway._voice_groq_client")
+    async def test_process_voice_turn_safe_flow(self, mock_groq_client, mock_retrieve):
         mock_retrieve.return_value = {
             "chunks": [{"id": "c1", "text": "Password reset requires an email verification link.", "score": 0.88}],
             "top_score": 0.88,
         }
-        mock_llm.return_value = "Password reset requires an email verification link to complete."
+        # Build a fake completion response matching the Groq SDK shape
+        mock_choice = AsyncMock()
+        mock_choice.message.content = "Password reset requires an email verification link to complete."
+        mock_completion = AsyncMock()
+        mock_completion.choices = [mock_choice]
+        mock_groq_client.chat.completions.create = AsyncMock(return_value=mock_completion)
 
         result = await voice_gateway.process_voice_turn(
             room_name="support-room",
