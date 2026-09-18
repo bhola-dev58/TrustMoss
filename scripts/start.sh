@@ -32,7 +32,7 @@ echo "🧹 Cleaning up any orphaned TrustMoss containers..."
 docker compose down --remove-orphans 2>/dev/null || true
 
 echo "🚀 Starting TrustMoss microservices stack..."
-docker compose up -d
+docker compose up -d --build
 
 echo ""
 echo "✅ All TrustMoss microservices launched successfully!"
