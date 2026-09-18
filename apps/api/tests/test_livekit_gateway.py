@@ -2,7 +2,6 @@
 test_livekit_gateway.py — Unit and integration tests for LiveKit Voice Gateway in TrustMoss.
 """
 
-import asyncio
 import unittest
 from unittest.mock import AsyncMock, patch
 

@@ -32,21 +32,17 @@ Design:
 
 from __future__ import annotations
 
-import textwrap
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 # Import both template modules so they register themselves
-import prompts.crispe as _crispe_mod          # registers 3 base templates
-import prompts.evaluation as _eval_mod         # registers 4 eval templates
-
 from prompts.crispe import TEMPLATE_REGISTRY, CRISPETemplate
 
 # ---------------------------------------------------------------------------
 # Category & surface metadata (enriches the raw template metadata)
 # ---------------------------------------------------------------------------
 
-_TEMPLATE_ENRICHMENT: Dict[str, Dict[str, Any]] = {
+_TEMPLATE_ENRICHMENT: dict[str, dict[str, Any]] = {
     "ORCHESTRATOR_V1": {
         "category": "orchestration",
         "llm_surface": "apps/api/main.py → POST /api/query → call_llm()",
@@ -158,7 +154,7 @@ _TEMPLATE_ENRICHMENT: Dict[str, Dict[str, Any]] = {
 # Core catalog builder
 # ---------------------------------------------------------------------------
 
-def build_catalog_entry(template: CRISPETemplate) -> Dict[str, Any]:
+def build_catalog_entry(template: CRISPETemplate) -> dict[str, Any]:
     """Build a single catalog entry by merging template metadata with enrichment data."""
     enrichment = _TEMPLATE_ENRICHMENT.get(template.name, {})
     meta = template.metadata
@@ -180,7 +176,7 @@ def build_catalog_entry(template: CRISPETemplate) -> Dict[str, Any]:
     }
 
 
-def catalog() -> Dict[str, Any]:
+def catalog() -> dict[str, Any]:
     """
     Returns the full CRISPE Prompt Catalog as a dict.
     Auto-syncs with TEMPLATE_REGISTRY — no manual maintenance required.
@@ -188,14 +184,14 @@ def catalog() -> Dict[str, Any]:
     entries = [build_catalog_entry(t) for t in TEMPLATE_REGISTRY.values()]
 
     # Group by category for structured output
-    by_category: Dict[str, List] = {}
+    by_category: dict[str, list] = {}
     for entry in entries:
         cat = entry["category"]
         by_category.setdefault(cat, []).append(entry)
 
     return {
         "catalog_version": "1.0.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "total_templates": len(entries),
         "categories": list(by_category.keys()),
         "templates": entries,
@@ -207,7 +203,7 @@ def catalog() -> Dict[str, Any]:
     }
 
 
-def get_catalog_entry(template_name: str) -> Dict[str, Any]:
+def get_catalog_entry(template_name: str) -> dict[str, Any]:
     """Returns the catalog entry for a single named template. Raises KeyError if not found."""
     if template_name not in TEMPLATE_REGISTRY:
         raise KeyError(
@@ -259,7 +255,7 @@ def catalog_as_markdown() -> str:
             "",
             f"**LLM Surface:** `{entry['llm_surface']}`",
             "",
-            f"| Parameter | Value |",
+            "| Parameter | Value |",
             "|---|---|",
             f"| Temperature | `{entry['temperature']}` |",
             f"| Max Tokens | `{entry['max_tokens']}` |",

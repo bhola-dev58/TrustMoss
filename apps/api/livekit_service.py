@@ -5,10 +5,9 @@ Handles WebRTC access token generation for voice participants and autonomous voi
 validates connection state, and manages room permissions.
 """
 
+from datetime import timedelta
 import logging
 import os
-from datetime import timedelta
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -39,7 +38,7 @@ def get_livekit_config() -> dict:
 def generate_token(
     room_name: str,
     participant_identity: str,
-    participant_name: Optional[str] = None,
+    participant_name: str | None = None,
     is_agent: bool = False,
     ttl_seconds: int = 3600,
 ) -> str:

@@ -17,20 +17,20 @@ Redis Key Schema:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("trustmoss.session_store")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # In-memory fallback store (used when Redis is unavailable)
 # ─────────────────────────────────────────────────────────────────────────────
-_memory_sessions: Dict[str, List[Dict]] = {}
-_memory_circuit: Dict[str, Dict] = {}
-_memory_hitl: List[Dict[str, Any]] = []
+_memory_sessions: dict[str, list[dict]] = {}
+_memory_circuit: dict[str, dict] = {}
+_memory_hitl: list[dict[str, Any]] = []
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -45,7 +45,7 @@ CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "3")) # 3
 # Session History
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def push_session_event(session_id: str, event: Dict[str, Any]) -> None:
+async def push_session_event(session_id: str, event: dict[str, Any]) -> None:
     """
     Append a query/response event to the session's history.
     Trims to SESSION_MAX_HISTORY to prevent unbounded growth.
@@ -74,7 +74,7 @@ async def push_session_event(session_id: str, event: Dict[str, Any]) -> None:
         _memory_sessions[session_id] = hist[-SESSION_MAX_HISTORY:]
 
 
-async def get_session_history(session_id: str) -> List[Dict[str, Any]]:
+async def get_session_history(session_id: str) -> list[dict[str, Any]]:
     """
     Retrieve the full session history as a list of event dicts.
     Returns an empty list if session not found.
@@ -100,7 +100,7 @@ async def set_session_trust(session_id: str, verdict: str, score: float) -> None
     redis = get_redis()
 
     key = f"session:{session_id}:trust"
-    data = {"verdict": verdict, "score": str(score), "updated_at": datetime.now(timezone.utc).isoformat()}
+    data = {"verdict": verdict, "score": str(score), "updated_at": datetime.now(UTC).isoformat()}
 
     if redis is not None:
         try:
@@ -136,7 +136,7 @@ async def clear_session(session_id: str) -> None:
 # Circuit Breaker State Machine
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def record_trust_failure(agent_id: str) -> Dict[str, Any]:
+async def record_trust_failure(agent_id: str) -> dict[str, Any]:
     """
     Record a trust failure for an agent. Increments failure count.
     Returns the current circuit breaker state after recording.
@@ -153,7 +153,7 @@ async def record_trust_failure(agent_id: str) -> Dict[str, Any]:
         try:
             pipe = redis.pipeline()
             await pipe.hincrby(key, "count", 1)
-            await pipe.hset(key, "last_fail_at", datetime.now(timezone.utc).isoformat())
+            await pipe.hset(key, "last_fail_at", datetime.now(UTC).isoformat())
             await pipe.expire(key, CIRCUIT_BREAKER_WINDOW)
             results = await pipe.execute()
             count = results[0]
@@ -173,7 +173,7 @@ async def record_trust_failure(agent_id: str) -> Dict[str, Any]:
     # In-memory fallback
     state = _memory_circuit.setdefault(agent_id, {"count": 0, "tripped": False})
     state["count"] += 1
-    state["last_fail_at"] = datetime.now(timezone.utc).isoformat()
+    state["last_fail_at"] = datetime.now(UTC).isoformat()
     state["tripped"] = state["count"] >= CIRCUIT_BREAKER_THRESHOLD
     if state["tripped"]:
         logger.warning("Circuit breaker TRIPPED (in-memory) for agent_id=%s.", agent_id)
@@ -221,7 +221,7 @@ async def reset_circuit(agent_id: str) -> None:
     logger.info("Circuit breaker RESET (in-memory) for agent_id=%s.", agent_id)
 
 
-async def get_circuit_state(agent_id: str) -> Dict[str, Any]:
+async def get_circuit_state(agent_id: str) -> dict[str, Any]:
     """Return the full circuit breaker state for an agent (for observability)."""
     from database import get_redis
     redis = get_redis()
@@ -260,7 +260,7 @@ async def get_circuit_state(agent_id: str) -> Dict[str, Any]:
 # HITL Queue
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def enqueue_hitl(query_id: str, priority_score: float, metadata: Dict[str, Any]) -> None:
+async def enqueue_hitl(query_id: str, priority_score: float, metadata: dict[str, Any]) -> None:
     """
     Add a query_id to the HITL pending review queue (Redis sorted set).
     priority_score: higher = reviewed first. Derived from hitl_priority:
@@ -294,7 +294,7 @@ async def enqueue_hitl(query_id: str, priority_score: float, metadata: Dict[str,
     logger.info("HITL enqueued (in-memory) query_id=%s priority=%.0f", query_id, priority_score)
 
 
-async def dequeue_hitl(count: int = 10) -> List[Dict[str, Any]]:
+async def dequeue_hitl(count: int = 10) -> list[dict[str, Any]]:
     """
     Dequeue up to `count` highest-priority HITL items for the reviewer dashboard.
     Returns list of dicts with query_id and metadata.

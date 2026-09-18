@@ -10,15 +10,14 @@ Enforces OWASP API Security standards:
 3. Configurable strict vs dev mode via AUTH_STRICT env variable.
 """
 
+from datetime import UTC, datetime, timedelta
 import logging
 import os
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional
 
-import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import jwt
 from pydantic import BaseModel
 
 load_dotenv()
@@ -75,10 +74,10 @@ class TokenResponse(BaseModel):
 def create_access_token(
     identity: str,
     role: str = "agent",
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a signed JWT token with claims."""
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload = {
@@ -86,7 +85,7 @@ def create_access_token(
         "role": role,
         "iss": "trustmoss-gateway",
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
     encoded_jwt = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
@@ -117,7 +116,7 @@ def decode_access_token(token: str) -> dict:
 
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
+    credentials: HTTPAuthorizationCredentials | None = Security(security),
 ) -> dict:
     """
     FastAPI dependency for authenticating users/agents.
@@ -143,7 +142,7 @@ async def get_current_user(
 verify_token = get_current_user
 
 
-def require_roles(allowed_roles: List[str]):
+def require_roles(allowed_roles: list[str]):
     """Role-Based Access Control (RBAC) dependency factory."""
 
     async def role_checker(user: dict = Depends(get_current_user)):

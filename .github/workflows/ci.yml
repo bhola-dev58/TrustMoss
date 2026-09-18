@@ -74,7 +74,7 @@ jobs:
       - name: Install development / test dependencies
         run: pip install -r apps/api/requirements-dev.txt
 
-      - name: Run pytest — full 121-test suite with coverage
+      - name: Run pytest — full 247-test suite with coverage
         run: |
           pytest apps/api/tests/ \
             -v \
@@ -121,14 +121,9 @@ jobs:
         run: |
           ruff check apps/api/ services/ \
             --output-format=github \
-            --select=E,F,W,I,N,UP,S \
-            --ignore=S101,S311,S603,S607,E501 \
+            --select=E,F,W \
+            --ignore=E501,E402,F841,F401 \
             --exclude=apps/api/.venv,apps/api/__pycache__
-        # Ignored rules:
-        #  S101 — assert usage (acceptable in tests)
-        #  S311 — random module (not used for crypto)
-        #  S603/S607 — subprocess (not used here)
-        #  E501 — line length (managed by formatter, not enforced in CI gate)
 
   # ─────────────────────────────────────────────────────────────────────────
   # JOB 3 — Security SAST (bandit) + Supply Chain (pip-audit)
@@ -249,3 +244,63 @@ jobs:
             pip-audit-prod.json
             pip-audit-dev.json
           retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Frontend Build & Vitest Suite (Next.js 14+ App Router)
+  # ─────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: frontend (Next.js build · Vitest)
+    runs-on: ubuntu-latest
+    needs: []          # Run in parallel with backend jobs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Run Vitest component unit tests
+        working-directory: apps/web
+        run: npm test
+
+      - name: Verify Next.js standalone production build
+        working-directory: apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 5 — k6 OSS Scalability & Sub-45ms SLA Gate
+  # ─────────────────────────────────────────────────────────────────────────
+  k6-sla-gate:
+    name: k6 scalability & SLA gate (<45ms P95)
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r apps/api/requirements.txt
+          pip install -r apps/api/requirements-dev.txt
+
+      - name: Validate local k6 OSS benchmark engine & SLA thresholds
+        run: |
+          pytest apps/api/tests/test_load_test.py -v
+

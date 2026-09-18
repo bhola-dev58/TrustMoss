@@ -13,18 +13,16 @@ Tests cover:
   9. FastAPI REST API endpoints (/api/load-tests CRUD + start/cancel)
 """
 
-import asyncio
 import os
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 import database
-import load_test
 from fastapi.testclient import TestClient
+import load_test
 import main
 
 

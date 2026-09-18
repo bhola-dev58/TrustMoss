@@ -3,22 +3,22 @@ Unit and Integration Tests for GDPR Compliance & Data Lifecycle Retention Engine
 """
 
 import asyncio
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 import tempfile
 import unittest
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 from fastapi.testclient import TestClient
-
-from apps.api.main import app as gateway_app
-import retention
 from retention import (
     DataCategory,
     RetentionManager,
     retention_manager,
 )
+
 from apps.api import voice_gateway
-from services.evaluation_service import app as eval_app, _hitl_queue, _encrypted_store
+from apps.api.main import app as gateway_app
+from services.evaluation_service import _encrypted_store, _hitl_queue
+from services.evaluation_service import app as eval_app
 
 
 class TestRetentionManagerCore(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestRetentionManagerCore(unittest.TestCase):
         )
 
     def test_register_and_ttl_expiration(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Register an already-expired record (created 60s ago with 10s TTL)
         past_time = now - timedelta(seconds=60)
         rec_expired = self.mgr.register_record(
@@ -127,7 +127,7 @@ class TestEvaluationServiceGDPR(unittest.TestCase):
 
     def test_evaluation_retention_purge_and_erasure(self):
         # Insert test items directly
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         past_iso = (now - timedelta(days=95)).isoformat()
         future_iso = (now + timedelta(days=80)).isoformat()
 

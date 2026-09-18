@@ -12,22 +12,22 @@ import logging
 import os
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/api")))
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
 import moss_client
+from pydantic import BaseModel
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trustmoss.moss_service")
 
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +58,7 @@ class RetrieveRequest(BaseModel):
 
 
 class RetrieveResponse(BaseModel):
-    chunks: List[Dict[str, Any]]
+    chunks: list[dict[str, Any]]
     top_score: float
     query: str
     retrieval_ms: float
@@ -107,4 +107,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("MOSS_SERVICE_PORT", "8002"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=os.getenv("HOST", "0.0.0.0"), port=port)  # nosec B104

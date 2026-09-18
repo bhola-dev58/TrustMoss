@@ -24,11 +24,11 @@ import os
 from pathlib import Path
 
 logger = logging.getLogger("trustmoss.crypto")
-from typing import Any, Dict, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any, Union
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
 
 CIPHER_PREFIX = "$aes256gcm$"
 NONCE_LENGTH_BYTES = 12  # 96 bits per NIST SP 800-38D
@@ -45,7 +45,7 @@ class DecryptionError(CryptoError):
     pass
 
 
-def get_encryption_key(key_override: Optional[Union[str, bytes]] = None) -> bytes:
+def get_encryption_key(key_override: Union[str, bytes] | None = None) -> bytes:
     """
     Resolves the 256-bit (32-byte) encryption key.
     Precedence:
@@ -96,8 +96,8 @@ def get_encryption_key(key_override: Optional[Union[str, bytes]] = None) -> byte
 
 def encrypt(
     plaintext: Union[str, bytes, dict, list],
-    aad: Optional[Union[str, bytes]] = None,
-    key: Optional[bytes] = None,
+    aad: Union[str, bytes] | None = None,
+    key: bytes | None = None,
 ) -> str:
     """
     Encrypts data using AES-256-GCM.
@@ -129,8 +129,8 @@ def encrypt(
 
 def decrypt(
     token: str,
-    aad: Optional[Union[str, bytes]] = None,
-    key: Optional[bytes] = None,
+    aad: Union[str, bytes] | None = None,
+    key: bytes | None = None,
     as_json: bool = False,
 ) -> Any:
     """
@@ -177,11 +177,11 @@ def is_encrypted(value: Any) -> bool:
 
 
 def encrypt_fields(
-    record: Dict[str, Any],
+    record: dict[str, Any],
     sensitive_fields: Sequence[str],
-    aad: Optional[Union[str, bytes]] = None,
-    key: Optional[bytes] = None,
-) -> Dict[str, Any]:
+    aad: Union[str, bytes] | None = None,
+    key: bytes | None = None,
+) -> dict[str, Any]:
     """
     Encrypts only specified sensitive fields in a dictionary.
     Returns a new dictionary with specified fields encrypted.
@@ -196,11 +196,11 @@ def encrypt_fields(
 
 
 def decrypt_fields(
-    record: Dict[str, Any],
+    record: dict[str, Any],
     sensitive_fields: Sequence[str],
-    aad: Optional[Union[str, bytes]] = None,
-    key: Optional[bytes] = None,
-) -> Dict[str, Any]:
+    aad: Union[str, bytes] | None = None,
+    key: bytes | None = None,
+) -> dict[str, Any]:
     """
     Decrypts specified sensitive fields in a dictionary if they are encrypted.
     Returns a new dictionary with plaintext values restored.
@@ -229,7 +229,7 @@ class EncryptedStore:
         self,
         filepath: Union[str, Path],
         sensitive_fields: Sequence[str] = ("query", "answer", "context_chunks", "approved_answer", "raw_transcript"),
-        key: Optional[bytes] = None,
+        key: bytes | None = None,
     ):
         self.filepath = Path(filepath)
         self.sensitive_fields = tuple(sensitive_fields)
@@ -239,7 +239,7 @@ class EncryptedStore:
         except OSError as e:
             logger.warning("Could not pre-create parent directory %s: %s", self.filepath.parent, e)
 
-    def save_records(self, items: List[Dict[str, Any]]) -> None:
+    def save_records(self, items: list[dict[str, Any]]) -> None:
         """
         Encrypts all sensitive fields and atomically writes records to disk.
         """
@@ -266,7 +266,7 @@ class EncryptedStore:
         # Atomic replacement
         temp_file.replace(self.filepath)
 
-    def load_records(self) -> List[Dict[str, Any]]:
+    def load_records(self) -> list[dict[str, Any]]:
         """
         Loads records from disk and decrypts sensitive fields.
         """
@@ -274,7 +274,7 @@ class EncryptedStore:
             return []
 
         try:
-            with open(self.filepath, "r", encoding="utf-8") as f:
+            with open(self.filepath, encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             return []
@@ -288,7 +288,7 @@ class EncryptedStore:
 
         return decrypted_items
 
-    def load_raw_encrypted(self) -> Dict[str, Any]:
+    def load_raw_encrypted(self) -> dict[str, Any]:
         """
         Returns the raw encrypted envelope directly from disk.
         Used for compliance verification and audit checks.
@@ -300,5 +300,5 @@ class EncryptedStore:
                 "record_count": 0,
                 "records": [],
             }
-        with open(self.filepath, "r", encoding="utf-8") as f:
+        with open(self.filepath, encoding="utf-8") as f:
             return json.load(f)

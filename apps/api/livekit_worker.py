@@ -10,11 +10,8 @@ import argparse
 import asyncio
 import json
 import logging
-import os
-import sys
 
 from dotenv import load_dotenv
-
 import livekit_service
 import voice_gateway
 

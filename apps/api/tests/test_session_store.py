@@ -11,7 +11,6 @@ Tests cover:
   - Mocked Redis operations for pipeline push & history retrieval
 """
 
-import asyncio
 import json
 import os
 import sys

@@ -30,6 +30,7 @@ TrustMoss defines **23 Unique Functional Requirement IDs** structured across 6 a
 * **`FR-MOSS-*`**: Moss Retrieval & Knowledge Lifecycle (Nodes 18–20)
 * **`FR-GOV-*`**: Governance, HITL & Prompt Catalog (Nodes 21–22)
 * **`FR-UI-*`**: User Interface & Real-Time Reliability HUD (Node 23)
+* **`FR-PERF-*`**: Performance & Scalability Engine (Node 24)
 
 ---
 
@@ -269,9 +270,49 @@ TrustMoss defines **23 Unique Functional Requirement IDs** structured across 6 a
 
 ---
 
-### 5.7. 23-Node Requirements Traceability Matrix (RTM) Summary
+### 5.7. Performance & Scalability Engine (`FR-PERF-*`)
 
-TrustMoss maintains 100% bidirectional requirements traceability across all 23 nodes, verified by 121 automated tests. Full traceability specifications, test mappings, and SLA verification data are published in the authoritative [Requirements Traceability Matrix (docs/REQUIREMENTS_TRACEABILITY_MATRIX.md)](file:///home/bhola-dev58/Ozeonix/TrustMoss/docs/REQUIREMENTS_TRACEABILITY_MATRIX.md).
+* **`FR-PERF-01: k6 OSS Scalability Testing Engine & Execution Profiles`**
+  * **Architecture Node:** Node 24 — k6 OSS Scalability Testing Engine (`apps/api/load_test.py`)
+  * **Description:** The system must provide a local, open-source k6 execution harness capable of running 5 distinct load profiles (`load`, `ramp`, `stress`, `spike`, `soak`) against the Trust Gateway and microservice endpoints, with automatic fallback to async high-fidelity simulation when native k6 is uninstalled.
+  * **Contract:** Exposes `POST /api/load-tests` generating injection-safe k6 test scripts with customizable virtual users (VUs) and durations.
+  * **Measurable Acceptance Criteria (MAC):**
+    * **MAC-PERF-01.1:** Generate valid, syntax-checked k6 test scripts for all 5 load profiles without external network dependencies.
+    * **MAC-PERF-01.2:** Discover local k6 binary via `K6_PATH` or system `PATH` in $< 5\text{ ms}$; fall back to simulated execution with realistic distribution when missing.
+    * **MAC-PERF-01.3:** Validate all user inputs against injection, restricting targets to localhost/loopback or configured endpoints.
+
+* **`FR-PERF-02: Sub-45ms P95 Latency SLA Gating & Assertions`**
+  * **Architecture Node:** Node 24 — k6 OSS Scalability Testing Engine (`apps/api/load_test.py`, `.github/workflows/ci.yml`)
+  * **Description:** The system must enforce strict latency threshold assertions within k6 test scripts (`p(95) < 45ms`, `p(99) < 75ms`, `http_req_failed < 0.01`), failing automated CI/CD pipeline runs upon any SLA breach.
+  * **Contract:** Injects threshold blocks into generated scripts and evaluates JSON execution summaries against SLA standards.
+  * **Measurable Acceptance Criteria (MAC):**
+    * **MAC-PERF-02.1:** Embed SLA assertions `http_req_duration: ['p(95)<45', 'p(99)<75']` and error assertions `http_req_failed: ['rate<0.01']` in generated scripts.
+    * **MAC-PERF-02.2:** Parse k6 JSON output summaries extracting P50, P90, P95, P99, error rates, and iteration counts.
+    * **MAC-PERF-02.3:** Mark test run as `FAILED` if P95 latency exceeds 45ms or error rate exceeds 1.0%.
+
+* **`FR-PERF-03: Process Execution Management & Real-Time Cancellation`**
+  * **Architecture Node:** Node 24 — k6 Process Manager (`apps/api/load_test.py`, `apps/api/main.py`)
+  * **Description:** The system must execute load tests as decoupled background processes with PID tracking, non-blocking asynchronous output streaming, and instantaneous graceful cancellation.
+  * **Contract:** Serves `POST /api/load-tests/{id}/start` and `POST /api/load-tests/{id}/cancel`.
+  * **Measurable Acceptance Criteria (MAC):**
+    * **MAC-PERF-03.1:** Spawn k6 subprocess asynchronously without blocking FastAPI event loop; track PID and timestamp.
+    * **MAC-PERF-03.2:** Cancel running test within $< 50\text{ ms}$ upon `POST /api/load-tests/{id}/cancel` using `SIGTERM` and update status to `CANCELLED`.
+    * **MAC-PERF-03.3:** Clean up temporary script and summary files upon test completion or process failure.
+
+* **`FR-PERF-04: Enterprise Relational Telemetry & Load Test History`**
+  * **Architecture Node:** Node 24 — Relational Benchmark Store (`apps/api/database.py`, `apps/web/components/hud/K6BenchmarkDashboard.jsx`)
+  * **Description:** The system must persist complete test configurations and JSONB benchmark summaries into PostgreSQL 16 `load_test_runs`, exposing historical comparisons and real-time visualization via the Next.js Operations Console.
+  * **Contract:** Exposes `GET /api/load-tests` and `GET /api/load-tests/{id}`.
+  * **Measurable Acceptance Criteria (MAC):**
+    * **MAC-PERF-04.1:** Persist run parameters, execution status, and JSONB metrics summary to PostgreSQL 16 `load_test_runs`.
+    * **MAC-PERF-04.2:** Retrieve historical runs via `GET /api/load-tests` with sorting, filtering, and pagination in $< 10\text{ ms}$.
+    * **MAC-PERF-04.3:** Next.js Benchmark Dashboard renders interactive profile selectors, VU sliders, live percentile cards, and SLA pass/fail badges.
+
+---
+
+### 5.8. 24-Node Requirements Traceability Matrix (RTM) Summary
+
+TrustMoss maintains 100% bidirectional requirements traceability across all 24 nodes, verified by 257 automated tests (247 backend pytest + 10 frontend vitest). Full traceability specifications, test mappings, and SLA verification data are published in the authoritative [Requirements Traceability Matrix (docs/REQUIREMENTS_TRACEABILITY_MATRIX.md)](file:///home/bhola-dev58/Ozeonix/TrustMoss/docs/REQUIREMENTS_TRACEABILITY_MATRIX.md).
 
 | Node # | Architecture Node Name | Domain | Requirement ID | Measurable Acceptance Criteria (MAC) | Implementation File | Verification Test Suite | Status |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- | :---: |
@@ -297,7 +338,8 @@ TrustMoss maintains 100% bidirectional requirements traceability across all 23 n
 | **20** | Index Version Registry | Moss Core | `FR-MOSS-03` | `MAC-MOSS-03.1–03.3` | `services/moss_service.py` | `test_microservices.py` | ✅ VERIFIED |
 | **21** | HITL Review Queue & Alerts | Governance | `FR-GOV-01` | `MAC-GOV-01.1–01.3` | `services/evaluation_service.py` | `test_crypto_encryption.py` | ✅ VERIFIED |
 | **22** | CRISPE Prompt Catalog | Governance | `FR-GOV-02` | `MAC-GOV-02.1–02.3` | `apps/api/prompts/catalog.py` | `test_prompt_catalog.py` | ✅ VERIFIED |
-| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1–01.4` | `apps/web/app/page.jsx` | SSR Build & HUD Suite | ✅ VERIFIED |
+| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1–01.4` | `apps/web/app/page.jsx` | Next.js SSR Build + Vitest Suite (10 tests) | ✅ VERIFIED |
+| **24** | k6 Scalability Engine & SLA Gate | Performance | `FR-PERF-01–04` | `MAC-PERF-01.1–02.3` | `apps/api/load_test.py` | `test_load_test.py` (11 tests) + CI SLA Gate | ✅ VERIFIED |
 
 ## 6. Non-Functional Requirements
 * **Performance:** Per-hop latency must be captured at microsecond resolution.

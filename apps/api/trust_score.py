@@ -15,14 +15,13 @@ Returns:
     }
 """
 
-from typing import Dict
 
 
 def aggregate(
-    relevance_result: Dict,
-    groundedness_result: Dict,
-    pii_result: Dict,
-) -> Dict:
+    relevance_result: dict,
+    groundedness_result: dict,
+    pii_result: dict,
+) -> dict:
     """
     Combine the three guardrail results into a single trust verdict.
 

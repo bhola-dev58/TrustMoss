@@ -22,9 +22,9 @@ Design Principles (same as prompts/crispe.py):
 from __future__ import annotations
 
 import textwrap
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from prompts.crispe import CRISPETemplate, TEMPLATE_REGISTRY, _format_context
+from prompts.crispe import TEMPLATE_REGISTRY, CRISPETemplate
 
 # ---------------------------------------------------------------------------
 # Version constants
@@ -392,8 +392,8 @@ TEMPLATE_REGISTRY[HITL_VERDICT_V1.name] = HITL_VERDICT_V1
 
 def render_groundedness_judge_prompt(
     answer: str,
-    context_chunks: List[Dict[str, Any]],
-) -> Tuple[str, str]:
+    context_chunks: list[dict[str, Any]],
+) -> tuple[str, str]:
     """
     Render GROUNDEDNESS_JUDGE_V1 for LLM-as-judge sentence-level evaluation.
     Note: 'query' slot receives the answer text (what is being judged).
@@ -412,7 +412,7 @@ def render_hallucination_risk_prompt(
     pii_detected: bool,
     unsupported_count: int,
     chunk_count: int,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Render HALLUCINATION_RISK_V1 for risk tier classification."""
     return HALLUCINATION_RISK_V1.render(
         query=query,
@@ -428,7 +428,7 @@ def render_hallucination_risk_prompt(
     )
 
 
-def render_jailbreak_analyst_prompt(inbound_prompt: str) -> Tuple[str, str]:
+def render_jailbreak_analyst_prompt(inbound_prompt: str) -> tuple[str, str]:
     """Render JAILBREAK_ANALYST_V1 for inbound adversarial prompt classification."""
     return JAILBREAK_ANALYST_V1.render(
         query=inbound_prompt,
@@ -440,9 +440,9 @@ def render_hitl_verdict_prompt(
     original_answer: str,
     corrected_answer: str,
     groundedness_score: float,
-    failed_factors: List[str],
+    failed_factors: list[str],
     verdict: str,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Render HITL_VERDICT_V1 for structured reviewer decision record generation."""
     return HITL_VERDICT_V1.render(
         query=original_answer,

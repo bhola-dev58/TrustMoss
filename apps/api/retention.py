@@ -18,10 +18,10 @@ and GDPR Article 15 & 17 compliance:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
 import os
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 logger = logging.getLogger("trustmoss.retention")
 
@@ -49,22 +49,22 @@ class RetentionRecord:
         record_id: str,
         subject_id: str,
         category: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         ttl_seconds: int,
-        created_at: Optional[datetime] = None,
+        created_at: datetime | None = None,
     ):
         self.record_id = record_id
         self.subject_id = subject_id
         self.category = category
         self.data = data
-        self.created_at = created_at or datetime.now(timezone.utc)
+        self.created_at = created_at or datetime.now(UTC)
         self.expires_at = self.created_at + timedelta(seconds=ttl_seconds)
 
     @property
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) >= self.expires_at
+        return datetime.now(UTC) >= self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "record_id": self.record_id,
             "subject_id": self.subject_id,
@@ -94,9 +94,9 @@ class RetentionManager:
             DataCategory.HITL_RECORD: hitl_ttl,
             DataCategory.PII_RECORD: audit_ttl,
         }
-        self._records: Dict[str, RetentionRecord] = {}
-        self._erasure_audit_log: List[Dict[str, Any]] = []
-        self._purge_history: List[Dict[str, Any]] = []
+        self._records: dict[str, RetentionRecord] = {}
+        self._erasure_audit_log: list[dict[str, Any]] = []
+        self._purge_history: list[dict[str, Any]] = []
 
     def get_ttl_for_category(self, category: str) -> int:
         return self.policy.get(category, DEFAULT_AUDIT_TTL_SEC)
@@ -106,9 +106,9 @@ class RetentionManager:
         record_id: str,
         subject_id: str,
         category: str,
-        data: Dict[str, Any],
-        custom_ttl_seconds: Optional[int] = None,
-        created_at: Optional[datetime] = None,
+        data: dict[str, Any],
+        custom_ttl_seconds: int | None = None,
+        created_at: datetime | None = None,
     ) -> RetentionRecord:
         """Enrolls a data record under lifecycle retention tracking."""
         ttl = custom_ttl_seconds or self.get_ttl_for_category(category)
@@ -123,12 +123,12 @@ class RetentionManager:
         self._records[record_id] = rec
         return rec
 
-    def purge_expired(self, category: Optional[str] = None) -> Dict[str, Any]:
+    def purge_expired(self, category: str | None = None) -> dict[str, Any]:
         """
         Scans all managed records and permanently purges any that have exceeded their TTL.
         Returns detailed telemetry report of the purge execution.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_delete = []
 
         for rec_id, rec in self._records.items():
@@ -151,18 +151,18 @@ class RetentionManager:
         logger.info("Data lifecycle purge completed: removed %d expired records.", purged_count)
         return report
 
-    def execute_erasure(self, subject_id: str, requested_by: str = "subject") -> Dict[str, Any]:
+    def execute_erasure(self, subject_id: str, requested_by: str = "subject") -> dict[str, Any]:
         """
         Implements GDPR Article 17 ('Right to Erasure' / 'Right to be Forgotten').
         Permanently purges all data associated with the subject_id across all categories.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_delete = [
             rec_id for rec_id, rec in self._records.items()
             if rec.subject_id == subject_id
         ]
 
-        deleted_by_category: Dict[str, int] = {}
+        deleted_by_category: dict[str, int] = {}
         for rec_id in to_delete:
             cat = self._records[rec_id].category
             deleted_by_category[cat] = deleted_by_category.get(cat, 0) + 1
@@ -188,7 +188,7 @@ class RetentionManager:
             "timestamp": now.isoformat(),
         }
 
-    def export_subject_data(self, subject_id: str) -> Dict[str, Any]:
+    def export_subject_data(self, subject_id: str) -> dict[str, Any]:
         """
         Implements GDPR Article 15 ('Right of Access') & Article 20 ('Data Portability').
         Returns all active records associated with the subject in portable JSON format.
@@ -200,18 +200,18 @@ class RetentionManager:
 
         return {
             "subject_id": subject_id,
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
             "total_records": len(matched),
             "records": matched,
             "gdpr_articles": ["Article 15 (Right of Access)", "Article 20 (Data Portability)"],
         }
 
-    def get_telemetry(self) -> Dict[str, Any]:
+    def get_telemetry(self) -> dict[str, Any]:
         """Returns comprehensive GDPR compliance and retention telemetry."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         active_count = 0
         expired_pending_purge = 0
-        categories_count: Dict[str, int] = {}
+        categories_count: dict[str, int] = {}
 
         for rec in self._records.values():
             if now >= rec.expires_at:

@@ -10,9 +10,8 @@ Usage:
     # [{"stage": "moss_retrieval", "duration_ms": 12.4}, ...]
 """
 
-import time
 from contextlib import contextmanager
-from typing import List
+import time
 
 
 class StageTimer:
@@ -30,7 +29,7 @@ class StageTimer:
 
 class Tracer:
     def __init__(self):
-        self._timers: List[StageTimer] = []
+        self._timers: list[StageTimer] = []
 
     @contextmanager
     def stage(self, name: str):
@@ -42,7 +41,7 @@ class Tracer:
         finally:
             timer.stop()
 
-    def get_trace(self) -> List[dict]:
+    def get_trace(self) -> list[dict]:
         return [{"stage": t.name, "duration_ms": t.duration_ms} for t in self._timers]
 
     def total_ms(self) -> float:

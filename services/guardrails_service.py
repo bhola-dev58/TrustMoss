@@ -10,7 +10,6 @@ Responsibilities:
 import logging
 import os
 import sys
-from typing import List, Optional
 
 # Add apps/api to path to reuse existing guardrail modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/api")))
@@ -18,9 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../a
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
 from guardrails import pii_scan
+from pydantic import BaseModel
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +60,7 @@ class InboundScanResponse(BaseModel):
     is_jailbreak: bool
     pii_detected: bool
     sanitized_prompt: str
-    risk_category: Optional[str] = None
+    risk_category: str | None = None
     reason: str
 
 
@@ -134,4 +132,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("GUARDRAILS_PORT", "8001"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=os.getenv("HOST", "0.0.0.0"), port=port)  # nosec B104

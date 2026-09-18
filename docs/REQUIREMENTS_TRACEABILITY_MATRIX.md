@@ -1,9 +1,9 @@
-# TrustMoss — 23-Node Architecture Requirements Traceability Matrix (RTM)
+# TrustMoss — 24-Node Architecture Requirements Traceability Matrix (RTM)
 
 > **Specification Standard:** Enterprise RTM & Verification Gating  
-> **Target Architecture:** TrustMoss 23-Node Reliability, Security & Evaluation Platform  
-> **Traceability Status:** **100% COVERAGE — ALL 23 NODES VERIFIED**  
-> **Automated Test Suite:** 121/121 Tests Passing (100% Green)
+> **Target Architecture:** TrustMoss 24-Node Reliability, Security, Evaluation & Performance Platform  
+> **Traceability Status:** **100% COVERAGE — ALL 24 NODES VERIFIED**  
+> **Automated Test Suite:** 257/257 Tests Passing (100% Green: 247 Backend Pytest + 10 Frontend Vitest)
 
 ---
 
@@ -20,12 +20,13 @@ The Requirements Traceability Matrix (RTM) establishes a bidirectional verificat
 | **LiveKit WebRTC Voice Gateway** | 3 Nodes | `FR-VOICE-01` – `FR-VOICE-03` | `test_livekit_gateway.py`, `test_crispe_prompts.py` | ✅ **VERIFIED (100%)** |
 | **Moss Retrieval & Knowledge Lifecycle** | 3 Nodes | `FR-MOSS-01` – `FR-MOSS-03` | `test_microservices.py`, `services/moss_service.py` | ✅ **VERIFIED (100%)** |
 | **Governance, HITL & Prompt Catalog** | 2 Nodes | `FR-GOV-01` – `FR-GOV-02` | `test_prompt_catalog.py`, `test_evaluation_prompts.py` | ✅ **VERIFIED (100%)** |
-| **User Interface & Reliability HUD** | 1 Node | `FR-UI-01` | Next.js 14+ App Router SSR, Component Verification | ✅ **VERIFIED (100%)** |
-| **TOTAL SYSTEM TOPOLOGY** | **23 NODES** | **23 REQUIREMENTS** | **9 Test Suites / 121 Tests** | ✅ **COMPLETE (100%)** |
+| **User Interface & Reliability HUD** | 1 Node | `FR-UI-01` | Next.js 14+ App Router SSR, Vitest Component Suite (`components.test.jsx`) | ✅ **VERIFIED (100%)** |
+| **Performance & Scalability Engine** | 1 Node | `FR-PERF-01` – `FR-PERF-04` | `test_load_test.py`, Vitest Benchmark Suite, CI k6 SLA Gate | ✅ **VERIFIED (100%)** |
+| **TOTAL SYSTEM TOPOLOGY** | **24 NODES** | **27 REQUIREMENTS** | **13 Test Suites / 257 Tests** | ✅ **COMPLETE (100%)** |
 
 ---
 
-## 2. 23-Node Architecture Requirements Traceability Matrix
+## 2. 24-Node Architecture Requirements Traceability Matrix
 
 | Node | Architecture Node Name | Domain | Requirement ID | Measurable Acceptance Criteria (MAC) | Implementation Source File | Automated Test Suite / Verification | Target SLA / Metric | Status |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: |
@@ -51,7 +52,8 @@ The Requirements Traceability Matrix (RTM) establishes a bidirectional verificat
 | **20** | Index Version Registry | Moss Core | `FR-MOSS-03` | `MAC-MOSS-03.1`<br>`MAC-MOSS-03.2`<br>`MAC-MOSS-03.3` | `services/moss_service.py` | `test_microservices.py` | SHA-256 Snapshots<br>Rollback $< 100\text{ ms}$ | ✅ VERIFIED |
 | **21** | HITL Review Queue & Alerts | Governance | `FR-GOV-01` | `MAC-GOV-01.1`<br>`MAC-GOV-01.2`<br>`MAC-GOV-01.3` | `apps/api/main.py`<br>`services/evaluation_service.py` | `test_evaluation_prompts.py`<br>`test_crypto_encryption.py` | Routing $< 5\text{ ms}$<br>AES-256-GCM Encrypted | ✅ VERIFIED |
 | **22** | CRISPE Prompt Catalog | Governance | `FR-GOV-02` | `MAC-GOV-02.1`<br>`MAC-GOV-02.2`<br>`MAC-GOV-02.3` | `apps/api/prompts/catalog.py`<br>`apps/api/prompts/crispe.py` | `test_prompt_catalog.py`<br>`test_crispe_prompts.py` | 100% Surface Coverage<br>Discovery $< 5\text{ ms}$ | ✅ VERIFIED |
-| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1`<br>`MAC-UI-01.2`<br>`MAC-UI-01.3`<br>`MAC-UI-01.4` | `apps/web/app/page.jsx`<br>`apps/web/src/components/*` | Next.js SSR Build<br>Component Suite | FCP $< 1.2\text{ s}$<br>Real-time Tri-State HUD | ✅ VERIFIED |
+| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1`<br>`MAC-UI-01.2`<br>`MAC-UI-01.3`<br>`MAC-UI-01.4` | `apps/web/app/page.jsx`<br>`apps/web/components/*` | Next.js SSR Build<br>`components.test.jsx` (10 tests) | FCP $< 1.2\text{ s}$<br>Real-time Tri-State HUD | ✅ VERIFIED |
+| **24** | k6 OSS Scalability Engine & SLA Gate | Performance | `FR-PERF-01`<br>`FR-PERF-02`<br>`FR-PERF-03`<br>`FR-PERF-04` | `MAC-PERF-01.1–01.3`<br>`MAC-PERF-02.1–02.3` | `apps/api/load_test.py`<br>`apps/api/main.py`<br>`apps/web/components/hud/K6BenchmarkDashboard.jsx` | `test_load_test.py` (11 tests)<br>`components.test.jsx`<br>CI k6 SLA Gate | P95 $< 45\text{ ms}$<br>P99 $< 75\text{ ms}$<br>Error Rate $< 1\%$ | ✅ VERIFIED |
 
 ---
 
@@ -216,3 +218,25 @@ The Requirements Traceability Matrix (RTM) establishes a bidirectional verificat
 * **Acceptance Criteria:** `MAC-UI-01.1`, `MAC-UI-01.2`, `MAC-UI-01.3`, `MAC-UI-01.4`
 * **Test Implementation:** Next.js SSR build verification, component test suite, API route proxy tests
 * **Evidence:** Server-rendered dashboard achieving $< 1.2\text{ s}$ FCP. Displays interactive real-time Tri-State Trust Badges (Green/Yellow/Red), an 8-hop microsecond latency waterfall bar chart, an interactive LiveKit WebRTC voice room with live audio waveform HUD, and a dedicated HITL operator resolution tab.
+
+---
+
+### Domain 7: Performance & Scalability Engine
+
+#### Node 24: k6 OSS Scalability Testing Engine & Sub-45ms SLA Gate (`FR-PERF-01`, `FR-PERF-02`, `FR-PERF-03`, `FR-PERF-04`)
+* **Components:** `apps/api/load_test.py`, `apps/api/main.py` (`/api/load-tests/*`), `apps/web/components/hud/K6BenchmarkDashboard.jsx`, `.github/workflows/ci.yml` (`k6-sla-gate` job)
+* **Functional Requirements Covered:**
+  * **`FR-PERF-01: k6 OSS Scalability Testing Engine & Execution Profiles`**
+    * **Acceptance Criteria:** `MAC-PERF-01.1` (Supports 5 deterministic profiles: `load`, `ramp`, `stress`, `spike`, `soak`), `MAC-PERF-01.2` (Automatic binary discovery via `K6_PATH` or `PATH` with async simulation fallback), `MAC-PERF-01.3` (Injection-safe JavaScript script generation).
+  * **`FR-PERF-02: Sub-45ms P95 Latency SLA Gating & Assertions`**
+    * **Acceptance Criteria:** `MAC-PERF-02.1` (Strict k6 threshold assertions: `http_req_duration: ['p(95)<45', 'p(99)<75']`), `MAC-PERF-02.2` (Error rate threshold: `http_req_failed: ['rate<0.01']`), `MAC-PERF-02.3` (CI/CD pipeline blocks merges on threshold failure).
+  * **`FR-PERF-03: Process Execution Management & Real-Time Cancellation`**
+    * **Acceptance Criteria:** `MAC-PERF-03.1` (Asynchronous non-blocking background subprocess execution with PID tracking), `MAC-PERF-03.2` (`POST /api/load-tests/{id}/cancel` cleanly terminates running k6 processes via `SIGTERM`), `MAC-PERF-03.3` (Real-time run status transitions: `PENDING` -> `RUNNING` -> `COMPLETED` / `FAILED` / `CANCELLED`).
+  * **`FR-PERF-04: Enterprise Relational Telemetry & Load Test History`**
+    * **Acceptance Criteria:** `MAC-PERF-04.1` (PostgreSQL 16 persistence in `load_test_runs` table with JSONB summary), `MAC-PERF-04.2` (`GET /api/load-tests` returns historical runs with filtering and pagination), `MAC-PERF-04.3` (Dashboard displays interactive VU sliders, live latency percentiles, and pass/fail SLA indicators).
+* **Test Implementation:**
+  * `apps/api/tests/test_load_test.py` (11 backend tests verifying discovery, validation, script generation, execution, cancellation, and metrics parsing)
+  * `apps/web/tests/components.test.jsx` (Vitest suite verifying `K6BenchmarkDashboard.jsx` rendering and configuration)
+  * `.github/workflows/ci.yml` (`k6-sla-gate` job running in CI)
+* **Evidence:** Benchmark generator creates valid k6 scripts with SLA thresholds. Subprocess runner executes safely with graceful cancellation and failure isolation. Complete test telemetry is stored relationally in PostgreSQL with full historical traceability.
+

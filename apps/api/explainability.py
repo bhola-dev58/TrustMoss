@@ -24,10 +24,8 @@ Output drives:
 
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional
-
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Score normalization thresholds
@@ -57,11 +55,11 @@ class FactorExplanation:
     score: float              # 0.0 – 1.0
     headline: str             # ≤ 20 words, executive summary
     detail: str               # Technical rationale
-    evidence: List[Dict[str, Any]] = field(default_factory=list)
-    recommendation: Optional[str] = None
+    evidence: list[dict[str, Any]] = field(default_factory=list)
+    recommendation: str | None = None
     weight: float = 1.0       # Relative importance weight for final score
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["score"] = round(self.score, 4)
         d["weight"] = round(self.weight, 4)
@@ -80,9 +78,9 @@ class TrustExplanation:
     composite_score: float    # Weighted average of all factor scores
     confidence_level: str     # HIGH | MEDIUM | LOW
     confidence_narrative: str
-    factors: List[FactorExplanation] = field(default_factory=list)
-    cited_chunks: List[Dict[str, Any]] = field(default_factory=list)
-    failed_factors: List[str] = field(default_factory=list)
+    factors: list[FactorExplanation] = field(default_factory=list)
+    cited_chunks: list[dict[str, Any]] = field(default_factory=list)
+    failed_factors: list[str] = field(default_factory=list)
 
     @property
     def trust_grade(self) -> str:
@@ -97,7 +95,7 @@ class TrustExplanation:
             return "D"
         return "F"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "query_id": self.query_id,
             "verdict": self.verdict,
@@ -120,8 +118,8 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 def build_relevance_explanation(
-    relevance_result: Dict[str, Any],
-    context_chunks: List[Dict[str, Any]],
+    relevance_result: dict[str, Any],
+    context_chunks: list[dict[str, Any]],
 ) -> FactorExplanation:
     """Builds explainability for the Context Relevance guardrail."""
     score = _clamp(relevance_result.get("score", 0.0))
@@ -170,8 +168,8 @@ def build_relevance_explanation(
 
 
 def build_groundedness_explanation(
-    groundedness_result: Dict[str, Any],
-    context_chunks: List[Dict[str, Any]],
+    groundedness_result: dict[str, Any],
+    context_chunks: list[dict[str, Any]],
 ) -> FactorExplanation:
     """Builds explainability for the Groundedness guardrail."""
     raw_score = groundedness_result.get("score", -1.0)
@@ -232,7 +230,7 @@ def build_groundedness_explanation(
 
 
 def build_pii_explanation(
-    pii_result: Dict[str, Any],
+    pii_result: dict[str, Any],
     query: str,
 ) -> FactorExplanation:
     """Builds explainability for the PII & Sensitive Data guardrail."""
@@ -285,7 +283,7 @@ def build_pii_explanation(
 
 def build_bias_explanation(
     answer: str,
-    context_chunks: List[Dict[str, Any]],
+    context_chunks: list[dict[str, Any]],
 ) -> FactorExplanation:
     """
     Lightweight heuristic bias / toxicity factor.
@@ -345,10 +343,10 @@ def build_trust_explanation(
     query: str,
     answer: str,
     verdict: str,
-    relevance_result: Dict[str, Any],
-    groundedness_result: Dict[str, Any],
-    pii_result: Dict[str, Any],
-    context_chunks: List[Dict[str, Any]],
+    relevance_result: dict[str, Any],
+    groundedness_result: dict[str, Any],
+    pii_result: dict[str, Any],
+    context_chunks: list[dict[str, Any]],
 ) -> TrustExplanation:
     """
     Assembles a complete, factorized TrustExplanation from all guardrail results.

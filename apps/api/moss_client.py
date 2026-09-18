@@ -17,10 +17,10 @@ It returns:
 """
 
 import asyncio
+import logging
 import os
 import time
-import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -129,7 +129,7 @@ async def init():
             return  # Already initialized by another coroutine
 
         try:
-            from moss import MossClient, DocumentInfo  # type: ignore
+            from moss import DocumentInfo, MossClient  # type: ignore
 
             logger.info("Connecting to Moss (project_id=%s)…", MOSS_PROJECT_ID)
             client = MossClient(MOSS_PROJECT_ID, MOSS_PROJECT_KEY)
@@ -169,7 +169,7 @@ async def init():
             _index_loaded = True
 
 
-async def retrieve(query: str, top_k: int = 3) -> Dict:
+async def retrieve(query: str, top_k: int = 3) -> dict:
     """
     Query Moss and return context chunks with scores.
     Falls back to deterministic mock if Moss is unavailable.
@@ -180,7 +180,7 @@ async def retrieve(query: str, top_k: int = 3) -> Dict:
         return _retrieve_mock(query, top_k)
 
 
-async def _retrieve_real(query: str, top_k: int) -> Dict:
+async def _retrieve_real(query: str, top_k: int) -> dict:
     from moss import QueryOptions  # type: ignore
 
     t0 = time.perf_counter()
@@ -198,7 +198,7 @@ async def _retrieve_real(query: str, top_k: int) -> Dict:
     return {"chunks": chunks, "top_score": top_score, "latency_ms": latency_ms}
 
 
-def _retrieve_mock(query: str, top_k: int) -> Dict:
+def _retrieve_mock(query: str, top_k: int) -> dict:
     """
     Deterministic mock: scores docs by simple keyword overlap so the pipeline
     behaves realistically (off-topic queries get low scores → WARN/FAIL trust).
@@ -207,7 +207,7 @@ def _retrieve_mock(query: str, top_k: int) -> Dict:
 
     query_words = set(re.findall(r"\w+", query.lower()))
 
-    scored: List[Dict] = []
+    scored: list[dict] = []
     for doc in SAMPLE_DOCS:
         doc_words = set(re.findall(r"\w+", doc["text"].lower()))
         overlap = len(query_words & doc_words)

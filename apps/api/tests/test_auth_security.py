@@ -2,18 +2,17 @@
 test_auth_security.py — Unit and integration tests for OWASP API Security and JWT/OAuth2 RBAC.
 """
 
+from datetime import timedelta
 import os
 import sys
 import unittest
-from datetime import timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
-from fastapi import Depends, FastAPI
+import auth
 from fastapi.testclient import TestClient
 
-import auth
 from apps.api.main import app as gateway_app
 
 
@@ -102,7 +101,6 @@ class TestOWASPSecurityHeadersAndEndpoints(unittest.TestCase):
             with patch("auth._get_secret", return_value=None):
                 # Re-evaluating strict mode validation
                 with self.assertRaises(RuntimeError) as ctx:
-                    import importlib
                     # Testing the validation logic directly
                     _configured = None
                     if True: # AUTH_STRICT

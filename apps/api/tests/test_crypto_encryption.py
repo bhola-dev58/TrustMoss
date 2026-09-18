@@ -2,18 +2,17 @@
 Unit and Integration Tests for AES-256-GCM Data-at-Rest Encryption (Task 4.2)
 """
 
-import json
-import os
+from pathlib import Path
 import shutil
 import tempfile
 import unittest
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from apps.api import crypto
 from apps.api.main import app as gateway_app
-from services.evaluation_service import app as eval_app, _hitl_queue, _encrypted_store
+from services.evaluation_service import _encrypted_store, _hitl_queue
+from services.evaluation_service import app as eval_app
 
 
 class TestCryptoAES256GCM(unittest.TestCase):
@@ -130,7 +129,7 @@ class TestEncryptedStorePersistence(unittest.TestCase):
         self.assertTrue(self.store_file.exists())
 
         # Inspect raw disk file — verify plaintext NEVER appears on disk
-        with open(self.store_file, "r", encoding="utf-8") as f:
+        with open(self.store_file, encoding="utf-8") as f:
             raw_content = f.read()
 
         self.assertNotIn("9876", raw_content)

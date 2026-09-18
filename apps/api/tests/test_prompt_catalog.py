@@ -3,21 +3,19 @@ tests/test_prompt_catalog.py — Unit tests for Task 5.3
 Prompt Catalog Module & PRD Embedding
 """
 
-import sys
 import os
+import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Import modules — side-effect registers all templates
-import prompts.crispe
-import prompts.evaluation
 from prompts.catalog import (
+    _TEMPLATE_ENRICHMENT,
     catalog,
     catalog_as_markdown,
     get_catalog_entry,
-    build_catalog_entry,
-    _TEMPLATE_ENRICHMENT,
 )
 from prompts.crispe import TEMPLATE_REGISTRY
 

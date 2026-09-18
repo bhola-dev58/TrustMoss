@@ -3,25 +3,23 @@ tests/test_crispe_prompts.py — Unit tests for Task 5.1
 CRISPE Agent Orchestrator Prompt Templates
 """
 
-import sys
 import os
-import json
+import sys
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from prompts.crispe import (
-    CRISPETemplate,
-    ORCHESTRATOR_V1,
-    VOICE_AGENT_V1,
     HITL_SUMMARIZER_V1,
+    ORCHESTRATOR_V1,
     TEMPLATE_REGISTRY,
+    VOICE_AGENT_V1,
+    _format_context,
+    get_template,
+    render_hitl_brief_prompt,
     render_orchestrator_prompt,
     render_voice_prompt,
-    render_hitl_brief_prompt,
-    get_template,
-    _format_context,
 )
 
 # ---------------------------------------------------------------------------

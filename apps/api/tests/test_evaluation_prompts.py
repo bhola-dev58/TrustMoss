@@ -3,24 +3,25 @@ tests/test_evaluation_prompts.py — Unit tests for Task 5.2
 CRISPE Evaluation Engine Prompt Templates
 """
 
-import sys
 import os
+import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Import evaluation templates (this also registers them in TEMPLATE_REGISTRY)
+from prompts.crispe import TEMPLATE_REGISTRY, get_template
 from prompts.evaluation import (
     GROUNDEDNESS_JUDGE_V1,
     HALLUCINATION_RISK_V1,
-    JAILBREAK_ANALYST_V1,
     HITL_VERDICT_V1,
+    JAILBREAK_ANALYST_V1,
     render_groundedness_judge_prompt,
     render_hallucination_risk_prompt,
-    render_jailbreak_analyst_prompt,
     render_hitl_verdict_prompt,
+    render_jailbreak_analyst_prompt,
 )
-from prompts.crispe import TEMPLATE_REGISTRY, get_template
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -21,10 +21,9 @@ Provider selection:
 
 from __future__ import annotations
 
+from enum import Enum
 import logging
 import os
-from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger("trustmoss.secrets")
 
@@ -79,7 +78,7 @@ _PROVIDER: SecretProvider = _detect_provider()
 _vault_cache: dict[str, str] = {}
 
 
-def _get_from_vault(key: str) -> Optional[str]:
+def _get_from_vault(key: str) -> str | None:
     """
     Fetch a secret from HashiCorp Vault KV v2.
     Path: secret/trustmoss → field: <key>
@@ -133,7 +132,7 @@ def _get_from_vault(key: str) -> Optional[str]:
 _aws_cache: dict[str, str] = {}
 
 
-def _get_from_aws(key: str) -> Optional[str]:
+def _get_from_aws(key: str) -> str | None:
     """
     Fetch a secret from AWS Secrets Manager.
     Expects the secret to be a JSON blob: {"GROQ_API_KEY": "...", "ENCRYPTION_KEY": "..."}
@@ -147,8 +146,9 @@ def _get_from_aws(key: str) -> Optional[str]:
     region      = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "us-east-1"))
 
     try:
-        import boto3  # type: ignore
         import json as _json
+
+        import boto3  # type: ignore
         from botocore.exceptions import ClientError  # type: ignore
     except ImportError:
         logger.warning(
@@ -180,7 +180,7 @@ def _get_from_aws(key: str) -> Optional[str]:
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
+def get_secret(key: str, default: str | None = None) -> str | None:
     """
     Resolve a secret by key using the configured provider.
 

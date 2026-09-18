@@ -3,23 +3,23 @@ tests/test_explainability.py — Unit + integration tests for Task 4.4
 Trust Score Explainability Framework
 """
 
-import sys
 import os
+import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import explainability
 from explainability import (
-    build_relevance_explanation,
-    build_groundedness_explanation,
-    build_pii_explanation,
-    build_bias_explanation,
-    build_trust_explanation,
-    trust_grade_for,
+    STATUS_FAIL,
     STATUS_PASS,
     STATUS_WARN,
-    STATUS_FAIL,
+    build_bias_explanation,
+    build_groundedness_explanation,
+    build_pii_explanation,
+    build_relevance_explanation,
+    build_trust_explanation,
+    trust_grade_for,
 )
 
 # ---------------------------------------------------------------------------

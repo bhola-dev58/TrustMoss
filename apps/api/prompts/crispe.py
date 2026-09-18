@@ -31,9 +31,9 @@ Usage:
 
 from __future__ import annotations
 
-import textwrap
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+import textwrap
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Version constants — increment on any substantive template change
@@ -69,14 +69,14 @@ class CRISPETemplate:
     persona: str
     execute_template: str           # Python .format()-style; {query} is filled at render time
     system_footer: str = ""         # Optional extra instructions appended to system prompt
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def render(
         self,
         query: str,
-        context_chunks: Optional[List[Dict[str, Any]]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, str]:
+        context_chunks: list[dict[str, Any]] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> tuple[str, str]:
         """
         Render the template into (system_prompt, user_message) strings.
 
@@ -109,7 +109,7 @@ class CRISPETemplate:
 # Shared context formatter
 # ---------------------------------------------------------------------------
 
-def _format_context(chunks: List[Dict[str, Any]]) -> str:
+def _format_context(chunks: list[dict[str, Any]]) -> str:
     """Format Moss context chunks as numbered [Source N] citations."""
     if not chunks:
         return "No context chunks retrieved from Moss knowledge base."
@@ -343,8 +343,8 @@ HITL_SUMMARIZER_V1 = CRISPETemplate(
 
 def render_orchestrator_prompt(
     query: str,
-    context_chunks: List[Dict[str, Any]],
-) -> Tuple[str, str]:
+    context_chunks: list[dict[str, Any]],
+) -> tuple[str, str]:
     """
     Render the ORCHESTRATOR_V1 CRISPE template.
 
@@ -356,8 +356,8 @@ def render_orchestrator_prompt(
 
 def render_voice_prompt(
     query: str,
-    context_chunks: List[Dict[str, Any]],
-) -> Tuple[str, str]:
+    context_chunks: list[dict[str, Any]],
+) -> tuple[str, str]:
     """
     Render the VOICE_AGENT_V1 CRISPE template for WebRTC voice turns.
 
@@ -370,9 +370,9 @@ def render_voice_prompt(
 def render_hitl_brief_prompt(
     query: str,
     answer: str,
-    failed_factors: List[str],
-    context_chunks: List[Dict[str, Any]],
-) -> Tuple[str, str]:
+    failed_factors: list[str],
+    context_chunks: list[dict[str, Any]],
+) -> tuple[str, str]:
     """
     Render the HITL_SUMMARIZER_V1 CRISPE template.
 
@@ -393,7 +393,7 @@ def render_hitl_brief_prompt(
 # Template registry (for dynamic look-up by name)
 # ---------------------------------------------------------------------------
 
-TEMPLATE_REGISTRY: Dict[str, CRISPETemplate] = {
+TEMPLATE_REGISTRY: dict[str, CRISPETemplate] = {
     ORCHESTRATOR_V1.name: ORCHESTRATOR_V1,
     VOICE_AGENT_V1.name: VOICE_AGENT_V1,
     HITL_SUMMARIZER_V1.name: HITL_SUMMARIZER_V1,

@@ -15,36 +15,33 @@ Pipeline order:
   6. Trust score aggregation (trust_score)
 """
 
-import logging
-import os
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List, Optional
-
-from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from groq import AsyncGroq
-from pydantic import BaseModel
+import logging
+import os
+import secrets as _secrets
+import uuid
 
 import auth
 import crypto
 import database
+from dotenv import load_dotenv
 import explainability
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from groq import AsyncGroq
+from guardrails import groundedness, pii_scan, relevance
 import livekit_service
 import moss_client
-import retention
-import secrets as _secrets
-import session_store
-import voice_gateway
-from guardrails import groundedness, pii_scan, relevance
 from prompts.catalog import catalog, catalog_as_markdown, get_catalog_entry
-from prompts.crispe import render_orchestrator_prompt, ORCHESTRATOR_V1
-import prompts.evaluation  # registers evaluation templates in TEMPLATE_REGISTRY
+from prompts.crispe import ORCHESTRATOR_V1, render_orchestrator_prompt
+from pydantic import BaseModel
+import retention
 from security_middleware import SecurityHeadersMiddleware
+import session_store
 from tracer import Tracer
 from trust_score import aggregate
+import voice_gateway
 
 load_dotenv()
 
@@ -61,7 +58,7 @@ MOSS_SERVICE_URL = os.getenv("MOSS_SERVICE_URL", "").rstrip("/")
 EVALUATION_SERVICE_URL = os.getenv("EVALUATION_SERVICE_URL", "").rstrip("/")
 
 # In-memory session history (list of QueryResponse dicts)
-_session_history: List[dict] = []
+_session_history: list[dict] = []
 _explain_store: dict = {}          # query_id → factorized TrustExplanation dict (last 200)
 
 # ---------------------------------------------------------------------------
@@ -191,8 +188,8 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
-    session_id: Optional[str] = None
-    agent_id: Optional[str] = "default-agent"
+    session_id: str | None = None
+    agent_id: str | None = "default-agent"
 
 
 class QueryResponse(BaseModel):
@@ -210,7 +207,7 @@ class QueryResponse(BaseModel):
 class LiveKitTokenRequest(BaseModel):
     room_name: str
     participant_identity: str
-    participant_name: Optional[str] = None
+    participant_name: str | None = None
     is_agent: bool = False
     ttl_seconds: int = 3600
 
@@ -228,10 +225,10 @@ class VoiceTurnRequest(BaseModel):
 # Helper: call Groq LLM
 # ---------------------------------------------------------------------------
 async def call_llm(query: str, context_chunks: list) -> str:
-    """
+    f"""
     Calls the Groq LLM using the production ORCHESTRATOR_V1 CRISPE prompt template.
-    Template: prompts/crispe.py::ORCHESTRATOR_V1 (version {version})
-    """.format(version=ORCHESTRATOR_V1.version)
+    Template: prompts/crispe.py::ORCHESTRATOR_V1 (version {ORCHESTRATOR_V1.version})
+    """
     # Render structured CRISPE prompt (Capacity, Request, Insight, Style, Persona, Execute)
     system_prompt, user_message = render_orchestrator_prompt(query, context_chunks)
 
@@ -461,7 +458,7 @@ async def explain_endpoint(query_id: str, _: dict = Depends(auth.verify_token)):
 # GET /history — session log
 # ---------------------------------------------------------------------------
 @app.get("/history")
-async def history_endpoint(session_id: Optional[str] = None, limit: int = 50):
+async def history_endpoint(session_id: str | None = None, limit: int = 50):
     """
     Returns query execution history and trust evaluation records.
     Primary source of truth: PostgreSQL trust_events table.
@@ -525,7 +522,7 @@ async def database_stats_endpoint():
 # GET /api/hitl/records — Persistent Human-in-the-Loop review items
 # ---------------------------------------------------------------------------
 @app.get("/api/hitl/records")
-async def hitl_records_endpoint(status: Optional[str] = None, limit: int = 50):
+async def hitl_records_endpoint(status: str | None = None, limit: int = 50):
     """
     Returns persisted HITL queue records from PostgreSQL or in-memory fallback.
     """
@@ -542,15 +539,16 @@ async def hitl_records_endpoint(status: Optional[str] = None, limit: int = 50):
 # ---------------------------------------------------------------------------
 import load_test
 
+
 class CreateLoadTestRequest(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
     test_type: str = "load"  # load, ramp, stress, spike, soak
     target: str = "http://localhost:8000/health"
     vus: int = 50
     duration: str = "30s"
     method: str = "GET"
-    headers: Optional[dict] = None
-    body: Optional[str] = None
+    headers: dict | None = None
+    body: str | None = None
 
 
 @app.post("/api/load-tests")
@@ -912,7 +910,7 @@ async def gdpr_export_endpoint(subject_id: str):
 
 
 @app.post("/api/compliance/retention/purge")
-async def manual_purge_endpoint(category: Optional[str] = None):
+async def manual_purge_endpoint(category: str | None = None):
     """Triggers an immediate purge cycle for expired records based on configured TTL."""
     report = retention.retention_manager.purge_expired(category=category)
     return {

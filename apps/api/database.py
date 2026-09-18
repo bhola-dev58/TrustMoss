@@ -21,13 +21,14 @@ Both resolved via the TrustMoss secret provider (Vault | AWS | ENV).
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 import json
 import logging
 import os
+from typing import Any
 import uuid
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Dict, List, Optional
 
 logger = logging.getLogger("trustmoss.database")
 
@@ -52,15 +53,15 @@ REDIS_URL: str = (
 # ─────────────────────────────────────────────────────────────────────────────
 # In-Memory Fallback Stores (active when PostgreSQL or Redis is offline)
 # ─────────────────────────────────────────────────────────────────────────────
-_in_memory_trust_events: List[Dict[str, Any]] = []
-_in_memory_audit_logs: List[Dict[str, Any]] = []
-_in_memory_hitl_records: Dict[str, Dict[str, Any]] = {}
-_in_memory_load_tests: Dict[str, Dict[str, Any]] = {}
+_in_memory_trust_events: list[dict[str, Any]] = []
+_in_memory_audit_logs: list[dict[str, Any]] = []
+_in_memory_hitl_records: dict[str, dict[str, Any]] = {}
+_in_memory_load_tests: dict[str, dict[str, Any]] = {}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PostgreSQL — asyncpg Connection Pool
 # ─────────────────────────────────────────────────────────────────────────────
-_pg_pool: Optional[object] = None    # asyncpg.Pool
+_pg_pool: object | None = None    # asyncpg.Pool
 MAX_POOL_SIZE: int = 10
 MIN_POOL_SIZE: int = 2
 
@@ -222,7 +223,7 @@ def is_postgres_available() -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Redis — Async Client (Session Cache + Circuit Breaker State)
 # ─────────────────────────────────────────────────────────────────────────────
-_redis_client: Optional[object] = None    # redis.asyncio.Redis
+_redis_client: object | None = None    # redis.asyncio.Redis
 
 
 async def init_redis() -> None:
@@ -269,7 +270,7 @@ async def close_redis() -> None:
         _redis_client = None
 
 
-def get_redis() -> Optional[object]:
+def get_redis() -> object | None:
     """Return the Redis client instance or None if unavailable."""
     return _redis_client
 
@@ -335,21 +336,21 @@ async def insert_trust_event(
     session_id: str,
     query_id: str,
     query_text: str,
-    answer_text: Optional[str],
+    answer_text: str | None,
     verdict: str,
     trust_score: float,
-    trust_color: Optional[str] = None,
-    agent_id: Optional[str] = None,
-    relevance_result: Optional[dict] = None,
-    groundedness_result: Optional[dict] = None,
-    pii_result: Optional[dict] = None,
-    evaluation_result: Optional[dict] = None,
+    trust_color: str | None = None,
+    agent_id: str | None = None,
+    relevance_result: dict | None = None,
+    groundedness_result: dict | None = None,
+    pii_result: dict | None = None,
+    evaluation_result: dict | None = None,
     circuit_breaker_tripped: bool = False,
-    context_chunks_count: Optional[int] = None,
-    top_retrieval_score: Optional[float] = None,
-    model_used: Optional[str] = None,
-    latency_ms: Optional[int] = None,
-) -> Optional[str]:
+    context_chunks_count: int | None = None,
+    top_retrieval_score: float | None = None,
+    model_used: str | None = None,
+    latency_ms: int | None = None,
+) -> str | None:
     """
     Insert a trust evaluation event into PostgreSQL or in-memory fallback.
     Returns the event UUID string.
@@ -373,7 +374,7 @@ async def insert_trust_event(
         "top_retrieval_score": top_retrieval_score,
         "model_used": model_used,
         "latency_ms": latency_ms,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
     if not is_postgres_available():
@@ -418,7 +419,7 @@ async def insert_trust_event(
         return None
 
 
-async def get_trust_events(limit: int = 50, session_id: Optional[str] = None) -> list[dict]:
+async def get_trust_events(limit: int = 50, session_id: str | None = None) -> list[dict]:
     """Retrieve recent trust events from PostgreSQL or in-memory fallback."""
     if not is_postgres_available():
         if session_id:
@@ -469,9 +470,9 @@ async def insert_audit_log(
     action: str,
     subject_id: str,
     actor_id: str = "system",
-    details: Optional[dict] = None,
-    gdpr_article: Optional[str] = None,
-) -> Optional[str]:
+    details: dict | None = None,
+    gdpr_article: str | None = None,
+) -> str | None:
     """Insert an immutable audit log entry into PostgreSQL or in-memory fallback."""
     log_item = {
         "id": str(uuid.uuid4()),
@@ -480,7 +481,7 @@ async def insert_audit_log(
         "actor_id": actor_id,
         "details": details,
         "gdpr_article": gdpr_article,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
     if not is_postgres_available():
@@ -519,16 +520,16 @@ async def insert_audit_log(
 async def insert_hitl_record(
     item_id: str,
     query_id: str,
-    session_id: Optional[str],
+    session_id: str | None,
     query_text: str,
-    answer_text: Optional[str],
+    answer_text: str | None,
     violation_type: str,
-    reason: Optional[str] = None,
+    reason: str | None = None,
     status: str = "PENDING",
-    operator_id: Optional[str] = None,
-    operator_notes: Optional[str] = None,
-    corrected_answer: Optional[str] = None,
-) -> Optional[str]:
+    operator_id: str | None = None,
+    operator_notes: str | None = None,
+    corrected_answer: str | None = None,
+) -> str | None:
     """Persist a new HITL review record into PostgreSQL or in-memory store."""
     record = {
         "item_id": item_id,
@@ -542,8 +543,8 @@ async def insert_hitl_record(
         "operator_id": operator_id,
         "operator_notes": operator_notes,
         "corrected_answer": corrected_answer,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }
     _in_memory_hitl_records[item_id] = record
 
@@ -577,7 +578,7 @@ async def insert_hitl_record(
         return item_id
 
 
-async def get_hitl_records(status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+async def get_hitl_records(status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
     """Retrieve HITL review queue records."""
     if not is_postgres_available():
         records = list(_in_memory_hitl_records.values())
@@ -623,9 +624,9 @@ async def get_hitl_records(status: Optional[str] = None, limit: int = 50) -> Lis
 async def update_hitl_record(
     item_id: str,
     status: str,
-    operator_id: Optional[str] = None,
-    operator_notes: Optional[str] = None,
-    corrected_answer: Optional[str] = None,
+    operator_id: str | None = None,
+    operator_notes: str | None = None,
+    corrected_answer: str | None = None,
 ) -> bool:
     """Update operator decision on a HITL review item."""
     if item_id in _in_memory_hitl_records:
@@ -634,7 +635,7 @@ async def update_hitl_record(
         rec["operator_id"] = operator_id or rec.get("operator_id")
         rec["operator_notes"] = operator_notes or rec.get("operator_notes")
         rec["corrected_answer"] = corrected_answer or rec.get("corrected_answer")
-        rec["updated_at"] = datetime.now(timezone.utc).isoformat()
+        rec["updated_at"] = datetime.now(UTC).isoformat()
 
     if not is_postgres_available():
         return True
@@ -669,7 +670,7 @@ async def insert_load_test_run(
     vus: int,
     duration: str,
     status: str = "CREATED",
-) -> Optional[str]:
+) -> str | None:
     """Persist a new load test execution record."""
     test_item = {
         "id": test_id,
@@ -686,7 +687,7 @@ async def insert_load_test_run(
         "threshold_passed": None,
         "breaking_point": None,
         "raw_metrics": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "completed_at": None,
     }
     _in_memory_load_tests[test_id] = test_item
@@ -717,13 +718,13 @@ async def insert_load_test_run(
 async def update_load_test_run(
     test_id: str,
     status: str,
-    p95_ms: Optional[float] = None,
-    p99_ms: Optional[float] = None,
-    rps: Optional[float] = None,
-    error_rate: Optional[float] = None,
-    threshold_passed: Optional[bool] = None,
-    breaking_point: Optional[str] = None,
-    raw_metrics: Optional[dict] = None,
+    p95_ms: float | None = None,
+    p99_ms: float | None = None,
+    rps: float | None = None,
+    error_rate: float | None = None,
+    threshold_passed: bool | None = None,
+    breaking_point: str | None = None,
+    raw_metrics: dict | None = None,
 ) -> bool:
     """Update status, metrics, and completion timestamp for a load test run."""
     if test_id in _in_memory_load_tests:
@@ -744,7 +745,7 @@ async def update_load_test_run(
         if raw_metrics is not None:
             run["raw_metrics"] = raw_metrics
         if status in ("COMPLETED", "FAILED", "CANCELLED"):
-            run["completed_at"] = datetime.now(timezone.utc).isoformat()
+            run["completed_at"] = datetime.now(UTC).isoformat()
 
     if not is_postgres_available():
         return True
@@ -753,7 +754,7 @@ async def update_load_test_run(
         async with get_pg_conn() as conn:
             if not conn:
                 return True
-            completed_now = datetime.now(timezone.utc) if status in ("COMPLETED", "FAILED", "CANCELLED") else None
+            completed_now = datetime.now(UTC) if status in ("COMPLETED", "FAILED", "CANCELLED") else None
             await conn.execute(
                 """
                 UPDATE load_test_runs SET
@@ -777,7 +778,7 @@ async def update_load_test_run(
         return False
 
 
-async def get_load_test_runs(limit: int = 50) -> List[Dict[str, Any]]:
+async def get_load_test_runs(limit: int = 50) -> list[dict[str, Any]]:
     """Fetch history of load test executions."""
     if not is_postgres_available():
         runs = list(_in_memory_load_tests.values())
@@ -804,7 +805,7 @@ async def get_load_test_runs(limit: int = 50) -> List[Dict[str, Any]]:
         return list(_in_memory_load_tests.values())[:limit]
 
 
-async def get_load_test_run(test_id: str) -> Optional[Dict[str, Any]]:
+async def get_load_test_run(test_id: str) -> dict[str, Any] | None:
     """Fetch single load test run by ID."""
     if not is_postgres_available():
         return _in_memory_load_tests.get(test_id)
@@ -833,7 +834,7 @@ async def get_load_test_run(test_id: str) -> Optional[Dict[str, Any]]:
 # 5. Database Connection Pool & Cache Telemetry (`get_database_stats`)
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def get_database_stats() -> Dict[str, Any]:
+async def get_database_stats() -> dict[str, Any]:
     """
     Produce comprehensive runtime telemetry for PostgreSQL connection pool,
     table row counts, and Redis session caching state.
@@ -896,7 +897,7 @@ async def get_database_stats() -> Dict[str, Any]:
 
     return {
         "status": "healthy" if (pg_available or redis_available) else "degraded_in_memory",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "postgresql": {
             "connected": pg_available,
             "pool_status": "active" if pg_available else "offline",

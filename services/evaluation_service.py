@@ -9,37 +9,32 @@ Responsibilities:
 5. Index Version Registry ('Git for Knowledge') with immutable commit hashes and atomic rollback.
 """
 
+from datetime import UTC, datetime, timedelta
 import logging
 import os
 import sys
+from typing import Any
 import uuid
-from datetime import datetime, timezone
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/api")))
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
 from guardrails import relevance
 from prompts.evaluation import (
-    GROUNDEDNESS_JUDGE_V1,
     HALLUCINATION_RISK_V1,
     HITL_VERDICT_V1,
-    render_hallucination_risk_prompt,
-    render_hitl_verdict_prompt,
 )
+from pydantic import BaseModel
 from trust_score import aggregate
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("trustmoss.evaluation_service")
 
-from services.crypto import EncryptedStore, get_encryption_key
-from services.retention import DataCategory, DEFAULT_HITL_TTL_SEC, retention_manager
+from services.crypto import EncryptedStore
+from services.retention import DEFAULT_HITL_TTL_SEC
 
 app = FastAPI(
     title="TrustMoss Evaluation & Governance Service",
@@ -66,10 +61,10 @@ _encrypted_store = EncryptedStore(
 )
 
 # Load existing encrypted records from disk if present, else empty list
-_hitl_queue: List[Dict[str, Any]] = _encrypted_store.load_records()
+_hitl_queue: list[dict[str, Any]] = _encrypted_store.load_records()
 
 # In-memory Index Version Registry ('Git for Knowledge')
-_index_versions: List[Dict[str, Any]] = [
+_index_versions: list[dict[str, Any]] = [
     {
         "version_id": "v1.4.0-prod",
         "commit_hash": "c7f91a2e34b",
@@ -94,10 +89,10 @@ _index_versions: List[Dict[str, Any]] = [
 class EvaluateRequest(BaseModel):
     query: str
     answer: str
-    context_chunks: List[Dict[str, Any]]
+    context_chunks: list[dict[str, Any]]
     top_score: float = 0.0
     pii_passed: bool = True
-    pii_reason: Optional[str] = None
+    pii_reason: str | None = None
 
 
 class EvaluateResponse(BaseModel):
@@ -105,11 +100,11 @@ class EvaluateResponse(BaseModel):
     color: str
     score: float
     reason: str
-    groundedness: Dict[str, Any]
-    relevance: Dict[str, Any]
+    groundedness: dict[str, Any]
+    relevance: dict[str, Any]
     circuit_breaker_tripped: bool
     requires_hitl: bool
-    hallucination_risk: Dict[str, Any] = {}
+    hallucination_risk: dict[str, Any] = {}
 
 
 class HitlResolveRequest(BaseModel):
@@ -164,7 +159,7 @@ async def evaluate_turn(req: EvaluateRequest):
 
     # If flagged, automatically queue in HITL review queue
     if requires_hitl:
-        now_dt = datetime.now(timezone.utc)
+        now_dt = datetime.now(UTC)
         expires_dt = now_dt + timedelta(seconds=DEFAULT_HITL_TTL_SEC)
         query_id = str(uuid.uuid4())[:8]
         item = {
@@ -281,7 +276,7 @@ async def resolve_hitl(req: HitlResolveRequest):
         if item["query_id"] == req.query_id:
             item["status"] = "resolved"
             item["resolved_by"] = req.reviewer
-            item["resolved_at"] = datetime.now(timezone.utc).isoformat()
+            item["resolved_at"] = datetime.now(UTC).isoformat()
             item["approved_answer"] = req.corrected_answer
 
             # Generate structured HITL verdict record using HITL_VERDICT_V1 CRISPE template
@@ -353,7 +348,7 @@ class ErasureRequest(BaseModel):
 async def purge_expired_records():
     """Purges records whose expires_at timestamp has passed."""
     global _hitl_queue
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     unexpired = []
     purged = 0
     for item in _hitl_queue:
@@ -387,14 +382,14 @@ async def execute_erasure(req: ErasureRequest):
         "subject_id": req.subject_id,
         "erased_count": erased,
         "remaining_count": len(_hitl_queue),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
 @app.get("/retention/status")
 async def retention_status():
     """Returns retention policy and status of HITL store."""
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     expired_count = sum(1 for item in _hitl_queue if item.get("expires_at") and item["expires_at"] <= now_iso)
     return {
         "policy_name": "GDPR-Compliant 90-Day HITL Retention",
@@ -466,4 +461,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("EVALUATION_PORT", "8003"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=os.getenv("HOST", "0.0.0.0"), port=port)  # nosec B104

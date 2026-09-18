@@ -20,19 +20,16 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 import json
 import logging
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
-import time
-import uuid
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 logger = logging.getLogger("trustmoss.load_test")
@@ -47,11 +44,11 @@ DEFAULT_SLA_P99_MS = 75.0
 DEFAULT_MAX_ERROR_RATE = 0.01  # 1%
 
 # Global process registry for active test cancellations
-_active_processes: Dict[str, subprocess.Popen] = {}
-_active_async_tasks: Dict[str, asyncio.Task] = {}
+_active_processes: dict[str, subprocess.Popen] = {}
+_active_async_tasks: dict[str, asyncio.Task] = {}
 
 
-def find_k6_binary() -> Optional[str]:
+def find_k6_binary() -> str | None:
     """Detect k6 OSS binary path via K6_PATH env or system PATH."""
     custom_path = os.getenv("K6_PATH")
     if custom_path and os.path.isfile(custom_path) and os.access(custom_path, os.X_OK):
@@ -139,8 +136,8 @@ def generate_k6_script(
     duration: str,
     test_type: str = "load",
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    body: Optional[str] = None,
+    headers: dict[str, str] | None = None,
+    body: str | None = None,
     sla_p95_ms: float = DEFAULT_SLA_P95_MS,
     sla_p99_ms: float = DEFAULT_SLA_P99_MS,
 ) -> str:
@@ -192,7 +189,7 @@ def generate_k6_script(
 
     script = f"""// ─────────────────────────────────────────────────────────────────────────────
 // TrustMoss Grafana k6 OSS Benchmark Script
-// Generated: {datetime.now(timezone.utc).isoformat()}
+// Generated: {datetime.now(UTC).isoformat()}
 // Profile: {test_type.upper()} | Target: {clean_target}
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,7 +231,7 @@ export default function () {{
 # Summary Parser & Breaking-Point Analyzer
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_k6_summary(summary_data: Dict[str, Any]) -> Dict[str, Any]:
+def parse_k6_summary(summary_data: dict[str, Any]) -> dict[str, Any]:
     """Parse k6 JSON summary export into standard TrustMoss metrics structure."""
     metrics = summary_data.get("metrics", {})
 
@@ -295,9 +292,9 @@ async def run_load_test(
     duration: str,
     test_type: str = "load",
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    body: Optional[str] = None,
-) -> Dict[str, Any]:
+    headers: dict[str, str] | None = None,
+    body: str | None = None,
+) -> dict[str, Any]:
     """
     Execute a full load test lifecycle:
       - Validates config and updates status to RUNNING in database
@@ -344,9 +341,9 @@ async def _execute_k6_subprocess(
     duration: str,
     test_type: str,
     method: str,
-    headers: Optional[Dict[str, str]],
-    body: Optional[str],
-) -> Dict[str, Any]:
+    headers: dict[str, str] | None,
+    body: str | None,
+) -> dict[str, Any]:
     """Execute real Grafana k6 OSS subprocess and parse results."""
     import database
 
@@ -434,7 +431,7 @@ async def _execute_simulated_benchmark(
     vus: int,
     duration: str,
     test_type: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     High-fidelity simulated execution engine.
     Validates the sub-45ms P95 SLA target and updates database metrics.

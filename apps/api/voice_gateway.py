@@ -12,19 +12,18 @@ Routes LiveKit WebRTC audio transcripts through the TrustMoss safety fabric:
 8. Per-hop voice latency telemetry (WebRTC Ingress -> STT -> Inbound -> Moss -> LLM -> Groundedness -> TTS)
 """
 
+from datetime import UTC, datetime
 import logging
 import os
 import time
+from typing import Any
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-
-import moss_client
 from groq import AsyncGroq
-from guardrails import groundedness, pii_scan, relevance
-from prompts.crispe import render_voice_prompt, VOICE_AGENT_V1
+from guardrails import pii_scan, relevance
+import moss_client
+from prompts.crispe import VOICE_AGENT_V1, render_voice_prompt
 from retention import DataCategory, retention_manager
 from tracer import Tracer
 from trust_score import aggregate
@@ -36,7 +35,7 @@ _voice_groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 logger = logging.getLogger("trustmoss.voice_gateway")
 
 # In-memory session tracking for voice rooms
-_voice_sessions: Dict[str, Dict[str, Any]] = {}
+_voice_sessions: dict[str, dict[str, Any]] = {}
 
 # Quantitative Thresholds as per PRD & evaluation benchmarks
 GROUNDEDNESS_TARGET = float(os.getenv("GROUNDEDNESS_THRESHOLD", "0.85"))
@@ -47,7 +46,7 @@ CIRCUIT_BREAKER_FALLBACK_SPEECH = (
 )
 
 
-def compute_audio_groundedness(answer: str, context_chunks: List[dict]) -> dict:
+def compute_audio_groundedness(answer: str, context_chunks: list[dict]) -> dict:
     """
     Evaluates real-time groundedness of agent voice transcripts against retrieved Moss chunks.
     Target threshold: >= 0.85 for production trust.
@@ -123,7 +122,7 @@ async def process_voice_turn(
     top_k: int = 3,
     simulated_webrtc_ms: float = 12.0,
     simulated_stt_ms: float = 45.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Main real-time voice pipeline interceptor.
     Routes speech from LiveKit through Trust Gateway and executes circuit breaker if needed.
@@ -163,7 +162,7 @@ async def process_voice_turn(
             },
             "latency_trace": tracer.get_trace(),
             "total_latency_ms": total_ms,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     # 3. Moss retrieval
@@ -242,7 +241,7 @@ async def process_voice_turn(
         },
         "latency_trace": latency_trace,
         "total_latency_ms": total_ms,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     # Record into voice session telemetry
@@ -250,7 +249,7 @@ async def process_voice_turn(
         _voice_sessions[room_name] = {
             "room_name": room_name,
             "participant_identity": participant_identity,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "turns": [],
             "total_turns": 0,
             "circuit_breaker_events": 0,
@@ -301,12 +300,12 @@ async def process_voice_turn(
     return result
 
 
-def get_voice_session(room_name: str) -> Optional[Dict[str, Any]]:
+def get_voice_session(room_name: str) -> dict[str, Any] | None:
     """Fetch active voice room session metrics."""
     return _voice_sessions.get(room_name)
 
 
-def list_active_voice_sessions() -> List[Dict[str, Any]]:
+def list_active_voice_sessions() -> list[dict[str, Any]]:
     """List summary of all active voice rooms."""
     return [
         {
