@@ -107,7 +107,7 @@ class TestVoiceGatewayRetentionIntegration(unittest.TestCase):
         mock_completion.choices = [mock_choice]
 
         with patch("moss_client.retrieve", new_callable=AsyncMock) as mock_retrieve, \
-             patch("voice_gateway._voice_groq_client") as mock_groq:
+             patch.object(voice_gateway, "_voice_groq_client") as mock_groq:
             mock_retrieve.return_value = {
                 "chunks": [{"id": "c1", "text": "Prescription dosage information.", "score": 0.80}],
                 "top_score": 0.80,
