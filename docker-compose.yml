@@ -21,8 +21,8 @@ services:
     image: postgres:16-alpine
     container_name: trustmoss-postgres
     restart: unless-stopped
-    ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+    expose:
+      - "5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-trustmoss}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trustmoss}
@@ -47,8 +47,8 @@ services:
     image: redis:7-alpine
     container_name: trustmoss-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6380}:6379"
+    expose:
+      - "6379"
     command: >
       redis-server
       --maxmemory 256mb
