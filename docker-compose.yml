@@ -30,6 +30,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - trustmoss-pgdata:/var/lib/postgresql/data
+      - ./apps/api/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trustmoss} -d ${POSTGRES_DB:-trustmoss}"]
       interval: 10s

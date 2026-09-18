@@ -185,6 +185,21 @@ async def evaluate_turn(req: EvaluateRequest):
         except Exception as e:
             logger.error("Failed to persist encrypted HITL queue: %s", e)
 
+        try:
+            import database
+            await database.insert_hitl_record(
+                item_id=query_id,
+                query_id=query_id,
+                session_id=getattr(req, "session_id", None),
+                query_text=req.query,
+                answer_text=req.answer,
+                violation_type="GROUNDEDNESS_FAILURE" if not g_passed else "RELEVANCE_FAILURE",
+                reason=trust.get("reason"),
+                status="PENDING",
+            )
+        except Exception as e:
+            logger.debug("Database HITL persist fallback: %s", e)
+
     # 5. Hallucination risk tier classification using HALLUCINATION_RISK_V1 template
     #    (static heuristic — upgrade to LLM call when Groq client is available in this service)
     unsupported_count = 0
@@ -304,6 +319,18 @@ async def resolve_hitl(req: HitlResolveRequest):
                 _encrypted_store.save_records(_hitl_queue)
             except Exception as e:
                 logger.error("Failed to persist resolved HITL update: %s", e)
+
+            try:
+                import database
+                await database.update_hitl_record(
+                    item_id=req.query_id,
+                    status="RESOLVED",
+                    operator_id=req.reviewer,
+                    operator_notes=f"HITL {verdict_label.lower()} by {req.reviewer}",
+                    corrected_answer=req.corrected_answer,
+                )
+            except Exception as e:
+                logger.debug("Database HITL update fallback: %s", e)
 
             return {
                 "status": "ok",

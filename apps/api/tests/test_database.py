@@ -171,5 +171,124 @@ class TestDatabaseLayerMockedExecution(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(database._redis_client)
 
 
+    async def test_hitl_records_lifecycle_in_memory(self):
+        # Insert HITL record
+        res_id = await database.insert_hitl_record(
+            item_id="hitl-test-01",
+            query_id="q-test-01",
+            session_id="s-test-01",
+            query_text="Suspicious query",
+            answer_text="Uncertain answer",
+            violation_type="GROUNDEDNESS_FAILURE",
+            reason="Score 0.42 below threshold",
+            status="PENDING",
+        )
+        self.assertEqual(res_id, "hitl-test-01")
+
+        # Fetch records
+        records = await database.get_hitl_records(status="PENDING")
+        self.assertTrue(any(r["item_id"] == "hitl-test-01" for r in records))
+
+        # Update record
+        updated = await database.update_hitl_record(
+            item_id="hitl-test-01",
+            status="RESOLVED",
+            operator_id="operator-dev",
+            corrected_answer="Verified accurate answer",
+        )
+        self.assertTrue(updated)
+
+        # Check updated status
+        resolved_records = await database.get_hitl_records(status="RESOLVED")
+        self.assertTrue(any(r["item_id"] == "hitl-test-01" and r["status"] == "RESOLVED" for r in resolved_records))
+
+    async def test_load_test_runs_lifecycle_in_memory(self):
+        test_id = "k6-run-test-99"
+        created_id = await database.insert_load_test_run(
+            test_id=test_id,
+            name="Stress Benchmark",
+            test_type="stress",
+            target="http://localhost:8000/health",
+            vus=100,
+            duration="30s",
+        )
+        self.assertEqual(created_id, test_id)
+
+        # Update metrics
+        success = await database.update_load_test_run(
+            test_id=test_id,
+            status="COMPLETED",
+            p95_ms=31.5,
+            p99_ms=44.2,
+            rps=850.0,
+            error_rate=0.0,
+            threshold_passed=True,
+            breaking_point="SLA Compliant (P95 < 45ms)",
+        )
+        self.assertTrue(success)
+
+        # Fetch single test
+        run = await database.get_load_test_run(test_id)
+        self.assertIsNotNone(run)
+        self.assertEqual(run["status"], "COMPLETED")
+        self.assertEqual(run["p95_ms"], 31.5)
+        self.assertTrue(run["threshold_passed"])
+
+        # Fetch all tests
+        all_runs = await database.get_load_test_runs()
+        self.assertTrue(any(r["id"] == test_id for r in all_runs))
+
+    async def test_get_database_stats_structure(self):
+        stats = await database.get_database_stats()
+        self.assertIn("status", stats)
+        self.assertIn("timestamp", stats)
+        self.assertIn("postgresql", stats)
+        self.assertIn("redis", stats)
+        self.assertIn("active_connections", stats["postgresql"])
+        self.assertIn("tables", stats["postgresql"])
+        self.assertIn("trust_events", stats["postgresql"]["tables"])
+        self.assertIn("hitl_records", stats["postgresql"]["tables"])
+        self.assertIn("load_test_runs", stats["postgresql"]["tables"])
+        self.assertIn("active_sessions", stats["redis"])
+
+
+
+class TestDatabaseEndpoints(unittest.TestCase):
+    """Integration tests for database-backed REST API endpoints."""
+
+    def setUp(self):
+        from fastapi.testclient import TestClient
+        import main
+        self.client = TestClient(main.app)
+
+    def test_database_stats_endpoint(self):
+        resp = self.client.get("/api/database/stats")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("postgresql", data)
+        self.assertIn("redis", data)
+        self.assertIn("tables", data["postgresql"])
+        self.assertIn("trust_events", data["postgresql"]["tables"])
+        self.assertIn("hitl_records", data["postgresql"]["tables"])
+        self.assertIn("load_test_runs", data["postgresql"]["tables"])
+
+    def test_history_endpoint_global(self):
+        resp = self.client.get("/history")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("count", data)
+        self.assertIn("queries", data)
+        self.assertIn("source", data)
+
+    def test_hitl_records_endpoint(self):
+        resp = self.client.get("/api/hitl/records")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("count", data)
+        self.assertIn("items", data)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+

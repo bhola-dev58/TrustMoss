@@ -461,26 +461,79 @@ async def explain_endpoint(query_id: str, _: dict = Depends(auth.verify_token)):
 # GET /history — session log
 # ---------------------------------------------------------------------------
 @app.get("/history")
-async def history_endpoint(session_id: Optional[str] = None):
+async def history_endpoint(session_id: Optional[str] = None, limit: int = 50):
+    """
+    Returns query execution history and trust evaluation records.
+    Primary source of truth: PostgreSQL trust_events table.
+    Fallback: Redis session buffer -> in-memory store.
+    """
     if session_id:
         redis_hist = await session_store.get_session_history(session_id)
         if redis_hist:
             return {
                 "count": len(redis_hist),
                 "session_id": session_id,
+                "source": "redis",
                 "queries": list(reversed(redis_hist)),
             }
         # Check postgres if redis empty or unavailable
-        db_events = await database.get_trust_events(limit=50, session_id=session_id)
+        db_events = await database.get_trust_events(limit=limit, session_id=session_id)
         if db_events:
             return {
                 "count": len(db_events),
                 "session_id": session_id,
+                "source": "postgresql",
                 "queries": db_events,
             }
+        filtered = [q for q in _session_history if q.get("session_id") == session_id]
+        return {
+            "count": len(filtered),
+            "session_id": session_id,
+            "source": "memory",
+            "queries": list(reversed(filtered)),
+        }
+
+    # Global history: Query PostgreSQL as primary persistent source of truth
+    db_events = await database.get_trust_events(limit=limit)
+    if db_events:
+        return {
+            "count": len(db_events),
+            "source": "postgresql",
+            "queries": db_events,
+        }
+
     return {
         "count": len(_session_history),
+        "source": "memory",
         "queries": list(reversed(_session_history)),  # newest first
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/database/stats — Live connection pool & Redis session telemetry
+# ---------------------------------------------------------------------------
+@app.get("/api/database/stats")
+async def database_stats_endpoint():
+    """
+    Returns real-time PostgreSQL connection pool statistics, table record counts,
+    and Redis session caching telemetry for the Next.js Operations Console.
+    """
+    return await database.get_database_stats()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/hitl/records — Persistent Human-in-the-Loop review items
+# ---------------------------------------------------------------------------
+@app.get("/api/hitl/records")
+async def hitl_records_endpoint(status: Optional[str] = None, limit: int = 50):
+    """
+    Returns persisted HITL queue records from PostgreSQL or in-memory fallback.
+    """
+    records = await database.get_hitl_records(status=status, limit=limit)
+    return {
+        "count": len(records),
+        "status_filter": status,
+        "items": records,
     }
 
 
