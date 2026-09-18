@@ -22,7 +22,7 @@ services:
     container_name: trustmoss-postgres
     restart: unless-stopped
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-trustmoss}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trustmoss}
@@ -48,7 +48,7 @@ services:
     container_name: trustmoss-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     command: >
       redis-server
       --maxmemory 256mb
