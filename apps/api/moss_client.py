@@ -28,9 +28,14 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-MOSS_PROJECT_ID = os.getenv("MOSS_PROJECT_ID", "")
-MOSS_PROJECT_KEY = os.getenv("MOSS_PROJECT_KEY", "")
-MOSS_INDEX_NAME = os.getenv("MOSS_INDEX_NAME", "trustmoss-kb")
+try:
+    from secrets import get_secret as _get_secret
+except ImportError:
+    _get_secret = lambda k, d="": os.getenv(k, d)  # noqa: E731
+
+MOSS_PROJECT_ID = _get_secret("MOSS_PROJECT_ID") or os.getenv("MOSS_PROJECT_ID", "")
+MOSS_PROJECT_KEY = _get_secret("MOSS_PROJECT_KEY") or os.getenv("MOSS_PROJECT_KEY", "")
+MOSS_INDEX_NAME = _get_secret("MOSS_INDEX_NAME") or os.getenv("MOSS_INDEX_NAME", "trustmoss-kb")
 
 # ---------------------------------------------------------------------------
 # Sample knowledge base — used to seed the Moss index on first run.

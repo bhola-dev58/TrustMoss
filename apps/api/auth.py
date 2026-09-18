@@ -28,15 +28,32 @@ logger = logging.getLogger("trustmoss.auth")
 try:
     from secrets import get_secret as _get_secret  # TrustMoss secret abstraction
 except ImportError:
-    import os as _os
-    _get_secret = lambda key, default=None: _os.getenv(key, default)  # noqa: E731
+    _get_secret = lambda key, default=None: os.getenv(key, default)  # noqa: E731
 
-JWT_SECRET_KEY = _get_secret("JWT_SECRET_KEY") or os.getenv(
-    "JWT_SECRET_KEY", "trustmoss_enterprise_secret_key_2026_x89a7f"
-)
+AUTH_STRICT = os.getenv("AUTH_STRICT", "false").lower() == "true"
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "120"))
-AUTH_STRICT = os.getenv("AUTH_STRICT", "false").lower() == "true"
+
+# Enforce zero hardcoded static credentials
+_configured_jwt_secret = _get_secret("JWT_SECRET_KEY") or os.getenv("JWT_SECRET_KEY")
+if AUTH_STRICT:
+    if not _configured_jwt_secret or _configured_jwt_secret == "trustmoss_enterprise_secret_key_2026_x89a7f":
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: JWT_SECRET_KEY must be explicitly configured when AUTH_STRICT=true. "
+            "Static fallback credentials are not permitted in production mode."
+        )
+    JWT_SECRET_KEY = _configured_jwt_secret
+else:
+    if not _configured_jwt_secret or _configured_jwt_secret == "trustmoss_enterprise_secret_key_2026_x89a7f":
+        import base64 as _base64
+        # Ephemeral cryptographically secure 256-bit CSPRNG key per process instance
+        JWT_SECRET_KEY = _base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+        logger.warning(
+            "AUTH_STRICT is disabled and no JWT_SECRET_KEY was provided. "
+            "Generated an ephemeral cryptographically secure 256-bit runtime key."
+        )
+    else:
+        JWT_SECRET_KEY = _configured_jwt_secret
 
 security = HTTPBearer(auto_error=False)
 
