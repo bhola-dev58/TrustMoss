@@ -8,7 +8,7 @@
 # - livekit-voice-agent (worker)
 # ─────────────────────────────────────────────
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -21,7 +21,7 @@ RUN pip install --upgrade pip \
     && pip install --prefix=/install --no-cache-dir -r requirements.txt
 
 # ── Runtime Base ─────────────────────────────
-FROM python:3.12-slim AS runtime-base
+FROM python:3.14-slim AS runtime-base
 
 RUN addgroup --system trustmoss && adduser --system --ingroup trustmoss trustmoss
 WORKDIR /app
