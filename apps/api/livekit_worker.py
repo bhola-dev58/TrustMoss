@@ -88,6 +88,9 @@ class TrustMossVoiceAgent:
         })
 
 
+import signal
+
+
 async def main():
     parser = argparse.ArgumentParser(description="TrustMoss LiveKit Voice Agent Worker")
     parser.add_argument("--room", type=str, default=DEFAULT_ROOM, help="LiveKit room name")
@@ -106,6 +109,18 @@ async def main():
         print("--------------------------------\n")
     else:
         logger.info("Worker standing by for live WebRTC audio streams...")
+        stop_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, stop_event.set)
+            except NotImplementedError:
+                pass
+        try:
+            await stop_event.wait()
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            pass
+        logger.info("TrustMoss Voice Agent worker terminated gracefully.")
 
 
 if __name__ == "__main__":

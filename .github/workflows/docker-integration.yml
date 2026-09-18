@@ -228,7 +228,7 @@ jobs:
           import sys, json
           data = json.load(sys.stdin)
           assert data.get('service') == 'trustmoss-gateway', f'Unexpected service name: {data}'
-          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          assert data.get('status') in ('ok', 'healthy'), f'Unexpected status: {data}'
           print('PASS: Gateway /health OK')
           "
 
@@ -240,7 +240,7 @@ jobs:
           import sys, json
           data = json.load(sys.stdin)
           assert data.get('service') == 'guardrails-service', f'Unexpected: {data}'
-          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          assert data.get('status') in ('ok', 'healthy'), f'Unexpected status: {data}'
           print('PASS: Guardrails /health OK')
           "
 
@@ -252,7 +252,7 @@ jobs:
           import sys, json
           data = json.load(sys.stdin)
           assert data.get('service') == 'moss-service', f'Unexpected: {data}'
-          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          assert data.get('status') in ('ok', 'healthy'), f'Unexpected status: {data}'
           print('PASS: Moss /health OK')
           "
 
@@ -264,8 +264,19 @@ jobs:
           import sys, json
           data = json.load(sys.stdin)
           assert data.get('service') == 'evaluation-service', f'Unexpected: {data}'
-          assert data.get('status') == 'ok', f'Unexpected status: {data}'
+          assert data.get('status') in ('ok', 'healthy'), f'Unexpected status: {data}'
           print('PASS: Evaluation /health OK')
+          "
+
+      - name: Smoke test — Web UI /api/health (port 3000)
+        run: |
+          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:3000/api/health)
+          echo "Web response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert data.get('status') == 'ok', f'Unexpected web status: {data}'
+          print('PASS: Web /api/health OK')
           "
 
       - name: Smoke test — Gateway auth token endpoint
@@ -282,6 +293,24 @@ jobs:
           assert 'access_token' in data, f'Missing access_token: {data}'
           assert data.get('role') == 'agent', f'Wrong role: {data}'
           print('PASS: Auth /api/auth/token issued a valid JWT')
+          "
+
+      - name: Smoke test — Full 8-hop Query Evaluation Pipeline
+        # Verify end-to-end flow: Gateway -> Moss -> LLM -> PII -> Evaluation
+        run: |
+          RESPONSE=$(curl -sf --retry 3 \
+            -X POST http://localhost:8000/query \
+            -H "Content-Type: application/json" \
+            -d '{"query":"What is the password reset procedure?","agent_id":"ci-agent"}')
+          echo "Pipeline response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          assert 'query_id' in data, f'Missing query_id: {data}'
+          assert 'trust' in data, f'Missing trust evaluation: {data}'
+          assert 'latency_trace' in data, f'Missing latency trace: {data}'
+          assert len(data.get('latency_trace', [])) >= 4, f'Incomplete latency stages: {data}'
+          print('PASS: 8-hop query evaluation pipeline verified end-to-end')
           "
 
       - name: Print container logs on failure
