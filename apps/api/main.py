@@ -250,6 +250,7 @@ async def call_llm(query: str, context_chunks: list) -> str:
 # POST /query — main pipeline
 # ---------------------------------------------------------------------------
 @app.post("/query", response_model=QueryResponse)
+@app.post("/api/query", response_model=QueryResponse)
 async def query_endpoint(request: QueryRequest):
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")

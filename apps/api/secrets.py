@@ -240,3 +240,58 @@ def invalidate_cache() -> None:
     _vault_cache.clear()
     _aws_cache.clear()
     logger.info("Secret cache invalidated — next access will re-fetch from %s.", _PROVIDER)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python Standard Library `secrets` Compatibility Shims
+# Because this module is named `secrets.py`, it shadows the standard library
+# `secrets` module when imported by dependencies like `asyncpg` (SCRAM-SHA-256).
+# These shims delegate to os.urandom and random.SystemRandom to maintain 100%
+# compatibility with third-party libraries.
+# ─────────────────────────────────────────────────────────────────────────────
+
+import base64 as _base64
+import hmac as _hmac
+import random as _random
+
+SystemRandom = _random.SystemRandom
+DEFAULT_ENTROPY = 32
+
+
+def token_bytes(nbytes: int | None = None) -> bytes:
+    """Return a random byte string containing nbytes bytes (default 32)."""
+    if nbytes is None:
+        nbytes = DEFAULT_ENTROPY
+    return os.urandom(nbytes)
+
+
+def token_hex(nbytes: int | None = None) -> str:
+    """Return a random text string, in hexadecimal."""
+    return token_bytes(nbytes).hex()
+
+
+def token_urlsafe(nbytes: int | None = None) -> str:
+    """Return a random URL-safe text string."""
+    tok = token_bytes(nbytes)
+    return _base64.urlsafe_b64encode(tok).rstrip(b"=").decode("ascii")
+
+
+def compare_digest(a, b) -> bool:
+    """Return 'a == b' using constant-time comparison to thwart timing attacks."""
+    return _hmac.compare_digest(a, b)
+
+
+def choice(seq):
+    """Return a randomly-chosen element from a non-empty sequence."""
+    return _random.SystemRandom().choice(seq)
+
+
+def randbelow(exclusive_upper_bound: int) -> int:
+    """Return a random int in the range [0, n)."""
+    return _random.SystemRandom().randbelow(exclusive_upper_bound)
+
+
+def randbits(k: int) -> int:
+    """Return an int with k random bits."""
+    return _random.SystemRandom().getrandbits(k)
+
