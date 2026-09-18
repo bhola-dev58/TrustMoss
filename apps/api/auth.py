@@ -25,7 +25,7 @@ logger = logging.getLogger("trustmoss.auth")
 
 # ── Secret Resolution via unified provider (Vault | AWS | ENV) ────────────────
 try:
-    from secrets import get_secret as _get_secret  # TrustMoss secret abstraction
+    from secret_manager import get_secret as _get_secret  # TrustMoss secret abstraction
 except ImportError:
     _get_secret = lambda key, default=None: os.getenv(key, default)  # noqa: E731
 

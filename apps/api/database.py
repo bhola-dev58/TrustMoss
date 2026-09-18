@@ -36,7 +36,7 @@ logger = logging.getLogger("trustmoss.database")
 # Secret-aware config loading
 # ─────────────────────────────────────────────────────────────────────────────
 try:
-    from secrets import get_secret as _get_secret
+    from secret_manager import get_secret as _get_secret
 except ImportError:
     _get_secret = lambda k, d=None: os.getenv(k, d)  # noqa: E731
 

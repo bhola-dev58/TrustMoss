@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import logging
 import os
-import secrets as _secrets
+import secret_manager as _secrets
 import uuid
 
 import auth

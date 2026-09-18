@@ -56,7 +56,7 @@ def get_encryption_key(key_override: Union[str, bytes] | None = None) -> bytes:
     """
     # ── Try the TrustMoss unified secret provider first ───────────────────────
     try:
-        from secrets import get_secret as _get_secret  # TrustMoss secret abstraction
+        from secret_manager import get_secret as _get_secret  # TrustMoss secret abstraction
         _provider_key = _get_secret("ENCRYPTION_KEY")
     except ImportError:
         _provider_key = None

@@ -26,8 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 # Resolve Database URL via TrustMoss Secret Provider
 # ─────────────────────────────────────────────────────────────────────────────
 try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "apps" / "api"))
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from secrets import get_secret as _get_secret
+    from secret_manager import get_secret as _get_secret
 except ImportError:
     _get_secret = lambda k, d=None: os.getenv(k, d)  # noqa: E731
 

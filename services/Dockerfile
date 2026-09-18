@@ -32,6 +32,11 @@ COPY --chown=trustmoss:trustmoss . .
 # Ensure data directory exists and is owned by non-root trustmoss user
 RUN mkdir -p /app/data && chown -R trustmoss:trustmoss /app
 
+# Remove any stale bytecode and verify Python standard library secrets is unshadowed
+RUN find . -type d -name __pycache__ -prune -exec rm -rf {} + \
+ && find . -type f -name '*.pyc' -delete \
+ && python -c "import secrets; assert hasattr(secrets, 'token_bytes'), 'secrets stdlib shadowed'"
+
 ENV PYTHONPATH="/app/apps/api:/app/services:/app"
 USER trustmoss
 

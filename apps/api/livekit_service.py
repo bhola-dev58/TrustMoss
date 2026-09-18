@@ -17,7 +17,7 @@ logger = logging.getLogger("trustmoss.livekit")
 
 # ── Secret Resolution via unified provider (Vault | AWS | ENV) ────────────────
 try:
-    from secrets import get_secret as _get_secret
+    from secret_manager import get_secret as _get_secret
 except ImportError:
     _get_secret = lambda key, default=None: os.getenv(key, default)  # noqa: E731
 

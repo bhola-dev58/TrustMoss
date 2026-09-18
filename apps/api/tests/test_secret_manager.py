@@ -1,5 +1,5 @@
 """
-test_secrets.py — Unit tests for the TrustMoss Secret Abstraction Layer (secrets.py).
+test_secret_manager.py — Unit tests for the TrustMoss Secret Abstraction Layer (secret_manager.py).
 
 Tests cover:
   - ENV provider (default — no external dependencies)
@@ -31,9 +31,9 @@ class TestSecretProviderENV(unittest.TestCase):
 
     def _reimport_secrets(self):
         """Force re-import of secrets module to pick up new env vars."""
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
-        import secrets as s  # noqa: PLC0415
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
+        import secret_manager as s  # noqa: PLC0415
         return s
 
     def test_get_secret_returns_env_value(self):
@@ -72,13 +72,13 @@ class TestSecretProviderENV(unittest.TestCase):
 
     def test_active_provider_returns_env(self):
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.ENV)
 
     def test_explicit_secret_provider_env_var(self):
         os.environ["SECRET_PROVIDER"] = "env"
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.ENV)
         del os.environ["SECRET_PROVIDER"]
 
@@ -87,9 +87,9 @@ class TestSecretProviderAutoDetection(unittest.TestCase):
     """Tests for auto-detection of provider based on environment."""
 
     def _reimport_secrets(self):
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
-        import secrets as s  # noqa: PLC0415
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
+        import secret_manager as s  # noqa: PLC0415
         return s
 
     def setUp(self):
@@ -104,18 +104,18 @@ class TestSecretProviderAutoDetection(unittest.TestCase):
         os.environ["VAULT_ADDR"] = "http://localhost:8200"
         os.environ["VAULT_TOKEN"] = "test-vault-token"
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.VAULT)
 
     def test_aws_provider_auto_detected_when_secret_name_set(self):
         os.environ["AWS_SECRET_NAME"] = "trustmoss/production"
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.AWS)
 
     def test_env_provider_when_nothing_set(self):
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.ENV)
 
     def test_explicit_secret_provider_overrides_auto(self):
@@ -124,7 +124,7 @@ class TestSecretProviderAutoDetection(unittest.TestCase):
         os.environ["VAULT_TOKEN"] = "test-vault-token"
         os.environ["SECRET_PROVIDER"] = "env"
         s = self._reimport_secrets()
-        from secrets import SecretProvider  # noqa: PLC0415
+        from secret_manager import SecretProvider  # noqa: PLC0415
         self.assertEqual(s.active_provider(), SecretProvider.ENV)
 
 
@@ -141,8 +141,8 @@ class TestSecretProviderVault(unittest.TestCase):
     def tearDown(self):
         for key in ["VAULT_ADDR", "VAULT_TOKEN", "SECRET_PROVIDER"]:
             os.environ.pop(key, None)
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
 
     def _make_mock_hvac(self, secrets_data: dict) -> MagicMock:
         mock_hvac = MagicMock()
@@ -156,10 +156,10 @@ class TestSecretProviderVault(unittest.TestCase):
 
     def test_vault_fetch_returns_correct_secret(self):
         mock_hvac = self._make_mock_hvac({"GROQ_API_KEY": "vault-groq-key-prod"})
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
         with patch.dict("sys.modules", {"hvac": mock_hvac}):
-            import secrets as s  # noqa: PLC0415
+            import secret_manager as s  # noqa: PLC0415
             # Clear the vault cache
             s.invalidate_cache()
             result = s.get_secret("GROQ_API_KEY")
@@ -171,10 +171,10 @@ class TestSecretProviderVault(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.is_authenticated.return_value = False
         mock_hvac.Client.return_value = mock_client
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
         with patch.dict("sys.modules", {"hvac": mock_hvac}):
-            import secrets as s  # noqa: PLC0415
+            import secret_manager as s  # noqa: PLC0415
             s.invalidate_cache()
             result = s.get_secret("GROQ_API_KEY")
             self.assertEqual(result, "env-fallback-key")
@@ -182,10 +182,10 @@ class TestSecretProviderVault(unittest.TestCase):
 
     def test_vault_fallback_when_hvac_not_installed(self):
         os.environ["ENCRYPTION_KEY"] = "env-enc-key-fallback"
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
         with patch.dict("sys.modules", {"hvac": None}):
-            import secrets as s  # noqa: PLC0415
+            import secret_manager as s  # noqa: PLC0415
             s.invalidate_cache()
             result = s.get_secret("ENCRYPTION_KEY")
             self.assertEqual(result, "env-enc-key-fallback")
@@ -200,14 +200,14 @@ class TestSecretProviderAWS(unittest.TestCase):
             os.environ.pop(key, None)
         os.environ["AWS_SECRET_NAME"] = "trustmoss/production"
         os.environ["SECRET_PROVIDER"] = "aws"
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
 
     def tearDown(self):
         for key in ["AWS_SECRET_NAME", "SECRET_PROVIDER"]:
             os.environ.pop(key, None)
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
 
     def test_aws_fetch_returns_correct_secret(self):
         mock_boto3 = MagicMock()
@@ -222,7 +222,7 @@ class TestSecretProviderAWS(unittest.TestCase):
 
         with patch.dict("sys.modules", {"boto3": mock_boto3, "botocore": mock_botocore,
                                          "botocore.exceptions": mock_botocore.exceptions}):
-            import secrets as s  # noqa: PLC0415
+            import secret_manager as s  # noqa: PLC0415
             s.invalidate_cache()
             result = s.get_secret("GROQ_API_KEY")
             self.assertEqual(result, "aws-groq-key-prod")
@@ -230,7 +230,7 @@ class TestSecretProviderAWS(unittest.TestCase):
     def test_aws_fallback_when_boto3_not_installed(self):
         os.environ["GROQ_API_KEY"] = "env-groq-fallback"
         with patch.dict("sys.modules", {"boto3": None}):
-            import secrets as s  # noqa: PLC0415
+            import secret_manager as s  # noqa: PLC0415
             s.invalidate_cache()
             result = s.get_secret("GROQ_API_KEY")
             self.assertEqual(result, "env-groq-fallback")
@@ -241,9 +241,9 @@ class TestInvalidateCache(unittest.TestCase):
     """Test cache invalidation mechanism."""
 
     def test_invalidate_cache_clears_vault_and_aws_caches(self):
-        if "secrets" in sys.modules:
-            del sys.modules["secrets"]
-        import secrets as s  # noqa: PLC0415
+        if "secret_manager" in sys.modules:
+            del sys.modules["secret_manager"]
+        import secret_manager as s  # noqa: PLC0415
         s._vault_cache["GROQ_API_KEY"] = "cached-value"
         s._aws_cache["ENCRYPTION_KEY"] = "cached-enc"
         s.invalidate_cache()

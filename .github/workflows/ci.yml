@@ -41,10 +41,13 @@ jobs:
       # ── Dummy secrets so tests that call os.getenv() get non-None values ──
       # Real values are NEVER embedded here — all production secrets live in
       # GitHub Repository Secrets and are injected only for integration jobs.
+      PYTHONPATH: "${{ github.workspace }}:${{ github.workspace }}/apps/api"
       GROQ_API_KEY: "ci-stub-groq-key"
       GROQ_MODEL: "llama-3.1-8b-instant"
       MOSS_API_KEY: "ci-stub-moss-key"
       MOSS_API_URL: "http://localhost:9999"
+      MOSS_PROJECT_ID: "ci-project"
+      MOSS_PROJECT_KEY: "ci-project-key"
       LIVEKIT_URL: "wss://ci-stub.livekit.cloud"
       LIVEKIT_API_KEY: "ci-stub-lk-key"
       LIVEKIT_API_SECRET: "ci-stub-lk-secret"
@@ -179,6 +182,7 @@ jobs:
 
       - name: pip-audit — supply chain CVE scan (BLOCKING gate)
         run: |
+          pip install --upgrade pip
           # Install both requirement sets so all transitive deps are scanned
           pip install -r apps/api/requirements.txt
           pip install -r apps/api/requirements-dev.txt
@@ -187,13 +191,13 @@ jobs:
           pip-audit \
             --requirement apps/api/requirements.txt \
             --format json \
-            --output pip-audit-prod.json
+            --output pip-audit-prod.json || true
 
           # Scan dev/test deps — separate report
           pip-audit \
             --requirement apps/api/requirements-dev.txt \
             --format json \
-            --output pip-audit-dev.json
+            --output pip-audit-dev.json || true
 
           # Merge both reports and fail if any patchable CVEs found
           python3 - <<'EOF'
@@ -301,6 +305,8 @@ jobs:
           pip install -r apps/api/requirements-dev.txt
 
       - name: Validate local k6 OSS benchmark engine & SLA thresholds
+        env:
+          PYTHONPATH: "${{ github.workspace }}:${{ github.workspace }}/apps/api"
         run: |
           pytest apps/api/tests/test_load_test.py -v
 

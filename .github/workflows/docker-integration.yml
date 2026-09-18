@@ -136,6 +136,8 @@ jobs:
       GROQ_MODEL: "llama-3.1-8b-instant"
       MOSS_API_KEY: "ci-stub-moss-key"
       MOSS_API_URL: "http://localhost:9999"
+      MOSS_PROJECT_ID: "ci-project"
+      MOSS_PROJECT_KEY: "ci-project-key"
       LIVEKIT_URL: "wss://ci-stub.livekit.cloud"
       LIVEKIT_API_KEY: "ci-stub-lk-key"
       LIVEKIT_API_SECRET: "ci-stub-lk-secret"
@@ -161,6 +163,8 @@ jobs:
           GROQ_MODEL=llama-3.1-8b-instant
           MOSS_API_KEY=ci-stub-moss-key
           MOSS_API_URL=http://localhost:9999
+          MOSS_PROJECT_ID=ci-project
+          MOSS_PROJECT_KEY=ci-project-key
           LIVEKIT_URL=wss://ci-stub.livekit.cloud
           LIVEKIT_API_KEY=ci-stub-lk-key
           LIVEKIT_API_SECRET=ci-stub-lk-secret
@@ -178,44 +182,43 @@ jobs:
         run: docker compose up -d
 
       - name: Wait for all services to be healthy (max 120s)
-        # Polls docker compose ps until all services report "healthy" or times out
         run: |
+          timeout=120
+          interval=5
+          elapsed=0
+
           echo "Waiting for services to become healthy..."
-          TIMEOUT=120
-          ELAPSED=0
-          INTERVAL=5
+          while [ "$elapsed" -lt "$timeout" ]; do
+            failed=0
 
-          while true; do
-            # Count services that are NOT healthy yet
-            UNHEALTHY=$(docker compose ps --format json \
-              | python3 -c "
-          import sys, json
-          lines = sys.stdin.read().strip()
-          # docker compose ps --format json emits one JSON object per line
-          services = [json.loads(l) for l in lines.splitlines() if l.strip()]
-          not_healthy = [s['Name'] for s in services
-                         if s.get('Health', '') not in ('healthy', '')
-                         and s.get('Name', '') != 'trustmoss-voice-agent']
-          print('\n'.join(not_healthy))
-          " 2>/dev/null || echo "")
+            while IFS=$'\t' read -r name state health; do
+              [ -z "$name" ] && continue
 
-            if [ -z "$UNHEALTHY" ]; then
-              echo "All services are healthy."
+              if [ "$state" != "running" ]; then
+                echo "Waiting: $name is state=$state"
+                failed=1
+              elif [ -n "$health" ] && [ "$health" != "healthy" ]; then
+                failed=1
+              fi
+            done < <(
+              docker compose ps -a --format '{{.Name}}\t{{.State}}\t{{.Health}}'
+            )
+
+            if [ "$failed" -eq 0 ]; then
+              echo "All required services are running and healthy."
               break
             fi
 
-            if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
-              echo "TIMEOUT: The following services did not become healthy in ${TIMEOUT}s:"
-              echo "$UNHEALTHY"
-              docker compose ps
-              docker compose logs --tail=50
-              exit 1
-            fi
-
-            echo "Still waiting for: $UNHEALTHY (${ELAPSED}s elapsed)"
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
+            sleep "$interval"
+            elapsed=$((elapsed + interval))
           done
+
+          if [ "$elapsed" -ge "$timeout" ]; then
+            echo "::error::Services did not become healthy within ${timeout}s"
+            docker compose ps -a
+            docker compose logs --tail=100
+            exit 1
+          fi
 
       - name: Show final service status
         run: docker compose ps
