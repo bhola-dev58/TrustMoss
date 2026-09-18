@@ -4,27 +4,28 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   Send,
-  Zap,
-  RotateCcw,
   Sparkles,
-  ExternalLink,
-  Github,
   Users,
-  AlertOctagon,
-  CheckCircle2,
-  Info,
-  Server,
-  Activity,
-  Bot,
-  User,
   Radio,
   MessageSquare,
+  Database,
+  BookOpen,
+  Gauge,
+  Activity,
+  Server,
+  RefreshCcw,
+  Bot,
+  User,
+  CheckCircle2,
 } from 'lucide-react';
-import TrustBadge from '../src/components/TrustBadge';
-import LatencyWaterfall from '../src/components/LatencyWaterfall';
-import ContextViewer from '../src/components/ContextViewer';
-import HitlQueueModal from '../src/components/HitlQueueModal';
-import LiveKitVoiceRoom from '../src/components/LiveKitVoiceRoom';
+import TrustBadge from '../components/hud/TrustBadge';
+import LatencyWaterfall from '../components/hud/LatencyWaterfall';
+import ContextViewer from '../components/hud/ContextViewer';
+import HitlQueueModal from '../components/hitl/HitlQueueModal';
+import LiveKitVoiceRoom from '../components/voice/LiveKitVoiceRoom';
+import DatabaseStatsPanel from '../components/database/DatabaseStatsPanel';
+import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer';
+import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard';
 
 const DEMO_PRESETS = [
   {
@@ -45,12 +46,13 @@ const DEMO_PRESETS = [
 ];
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('voice'); // 'voice' or 'text'
+  const [activeTab, setActiveTab] = useState('agent'); // 'agent', 'database', 'catalog', 'scalability'
+  const [agentMode, setAgentMode] = useState('voice'); // 'voice' or 'text'
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Welcome to TrustMoss on Next.js 14 App Router. I am an enterprise knowledge agent wrapped in real-time guardrails, LiveKit WebRTC audio streaming, and sub-15ms Moss contextual retrieval.',
+      text: 'Welcome to TrustMoss Operations Console on Next.js 14 App Router. I am an enterprise knowledge agent wrapped in real-time guardrails, LiveKit WebRTC audio streaming, PostgreSQL persistence, and sub-15ms Moss contextual retrieval.',
       trust: {
         verdict: 'PASS',
         color: 'green',
@@ -58,13 +60,14 @@ export default function Home() {
         reason: 'System initialization verified.',
       },
       latency_trace: [
+        { stage: 'webrtc_ingress', duration_ms: 11.2 },
         { stage: 'moss_retrieval', duration_ms: 9.4 },
         { stage: 'relevance_check', duration_ms: 0.02 },
         { stage: 'llm_generation', duration_ms: 412.0 },
         { stage: 'groundedness_check', duration_ms: 0.01 },
         { stage: 'pii_scan', duration_ms: 0.0 },
       ],
-      total_latency_ms: 421.43,
+      total_latency_ms: 432.63,
       context_chunks: [
         {
           id: 'kb-init',
@@ -72,7 +75,7 @@ export default function Home() {
           score: 1.0,
         },
       ],
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: 'Initial startup',
     },
   ]);
 
@@ -89,8 +92,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+    if (activeTab === 'agent' && agentMode === 'text') {
+      scrollToBottom();
+    }
+  }, [messages, isLoading, activeTab, agentMode]);
 
   const handleSend = async (queryText) => {
     const q = (queryText || input).trim();
@@ -103,7 +108,6 @@ export default function Home() {
       text: q,
       timestamp: new Date().toLocaleTimeString(),
     };
-
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
@@ -111,42 +115,38 @@ export default function Home() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, top_k: 3 }),
+        body: JSON.stringify({ query: q }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API error: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`Gateway returned HTTP ${res.status}`);
 
       const data = await res.json();
-
-      const assistantMsg = {
-        id: data.query_id || `resp-${Date.now()}`,
+      const botMsg = {
+        id: data.query_id || `bot-${Date.now()}`,
         role: 'assistant',
         text: data.answer,
         trust: data.trust,
-        guardrails: data.guardrails,
         latency_trace: data.latency_trace,
         total_latency_ms: data.total_latency_ms,
         context_chunks: data.context_chunks,
         timestamp: new Date().toLocaleTimeString(),
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
-      setActiveInspector(assistantMsg);
+      setMessages((prev) => [...prev, botMsg]);
+      setActiveInspector(botMsg);
 
-      if (data.trust?.verdict === 'WARN' || data.trust?.verdict === 'FAIL') {
-        setFlaggedItems((prev) => [assistantMsg, ...prev]);
+      if (data.trust?.verdict === 'FAIL' || data.trust?.verdict === 'WARN') {
+        setFlaggedItems((prev) => [botMsg, ...prev]);
       }
     } catch (err) {
-      console.warn('API error, using local fallback:', err);
-      const isOffTopic = q.toLowerCase().includes('quantum') || q.toLowerCase().includes('crypto');
-      const isPii = q.includes('SSN') || q.includes('000-12');
+      console.warn('API fetch failed, generating client simulation fallback:', err);
+      const isOffTopic = q.toLowerCase().includes('quantum') || q.toLowerCase().includes('mining');
+      const isPii = q.toLowerCase().includes('ssn') || q.toLowerCase().includes('@');
 
       let verdict = 'PASS';
-      let reason = 'All guardrail checks passed. Grounded in Moss context.';
+      let reason = 'Verified by Moss retrieval and NLI evaluator.';
       let score = 0.94;
-      let ans = 'Our refund policy allows customers to request a full refund within 30 days of purchase. Digital products are eligible if defective.';
+      let ans = 'Our digital product refund policy allows 30-day no-questions-asked refunds via the billing dashboard.';
 
       if (isPii) {
         verdict = 'FAIL';
@@ -166,13 +166,14 @@ export default function Home() {
         text: ans,
         trust: { verdict, score, reason, color: verdict === 'PASS' ? 'green' : 'red' },
         latency_trace: [
+          { stage: 'webrtc_ingress', duration_ms: 11.2 },
           { stage: 'moss_retrieval', duration_ms: 11.2 },
           { stage: 'relevance_check', duration_ms: 0.02 },
           { stage: 'llm_generation', duration_ms: 540.1 },
           { stage: 'groundedness_check', duration_ms: 0.02 },
           { stage: 'pii_scan', duration_ms: 0.01 },
         ],
-        total_latency_ms: 551.35,
+        total_latency_ms: 562.55,
         context_chunks: [
           {
             id: 'kb-001',
@@ -195,7 +196,6 @@ export default function Home() {
   };
 
   const handleVoiceTurnLogged = (turnData) => {
-    // Also push voice turns that fail into HITL queue
     if (turnData.circuit_breaker_tripped) {
       setFlaggedItems((prev) => [
         {
@@ -222,35 +222,65 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold tracking-tight text-white">TrustMoss</h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Next.js App Router • LIVE
+                Next.js 14 App Router
               </span>
             </div>
             <p className="text-xs text-slate-400">Zero-Latency Trust & Guardrail Gateway for Voice & Text Agents</p>
           </div>
         </div>
 
-        {/* Live System Status Badges */}
-        <div className="hidden lg:flex items-center gap-4 text-xs font-mono">
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span className="text-slate-400">LiveKit:</span>
-            <span className="text-emerald-400 font-semibold">WebRTC Gateway</span>
-          </div>
+        {/* Global Navigation Tabs */}
+        <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-xl p-1 text-xs font-medium">
+          <button
+            onClick={() => setActiveTab('agent')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'agent'
+                ? 'bg-emerald-600 text-white shadow font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>Agent HUD</span>
+          </button>
 
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="text-slate-400">Moss Index:</span>
-            <span className="text-emerald-400 font-semibold">trustmoss-kb (~11ms)</span>
-          </div>
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'database'
+                ? 'bg-emerald-600 text-white shadow font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Postgres & Redis</span>
+          </button>
 
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg">
-            <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-slate-400">Groq:</span>
-            <span className="text-slate-200">Llama-3.1-8B</span>
-          </div>
+          <button
+            onClick={() => setActiveTab('catalog')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'catalog'
+                ? 'bg-emerald-600 text-white shadow font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>CRISPE Catalog</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('scalability')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'scalability'
+                ? 'bg-emerald-600 text-white shadow font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Gauge className="w-3.5 h-3.5" />
+            <span>k6 Benchmarks</span>
+          </button>
         </div>
 
-        {/* Action Buttons */}
+        {/* HITL Action */}
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setHitlModalOpen(true)}
@@ -259,201 +289,193 @@ export default function Home() {
             <Users className="w-3.5 h-3.5 text-amber-400" />
             <span>HITL Queue</span>
             {flaggedItems.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-bold">
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold font-mono">
                 {flaggedItems.length}
               </span>
             )}
           </button>
-
-          <a
-            href="https://github.com/bhola-dev58/TrustMoss"
-            target="_blank"
-            rel="noreferrer"
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-            title="GitHub Repository"
-          >
-            <Github className="w-4 h-4" />
-          </a>
         </div>
       </header>
 
-      {/* Gateway Mode Switcher Tabs */}
-      <div className="border-b border-slate-800 bg-[#0a0f19] px-6 py-2 flex items-center gap-3">
-        <button
-          onClick={() => setActiveTab('voice')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
-            activeTab === 'voice'
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 border border-transparent'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5" />
-          <span>LiveKit Voice Reliability Gateway</span>
-          <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-400/20 text-emerald-300 font-mono">
-            MANDATORY STACK
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('text')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
-            activeTab === 'text'
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 border border-transparent'
-          }`}
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>Synchronous Text Trust Console</span>
-        </button>
-      </div>
-
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Interactive Area */}
-        <div className="flex-1 flex flex-col p-6 overflow-y-auto max-w-4xl mx-auto w-full gap-6">
-          {activeTab === 'voice' ? (
-            /* LiveKit Voice Room Interface */
-            <LiveKitVoiceRoom onTurnLogged={handleVoiceTurnLogged} />
-          ) : (
-            /* Text RAG Pipeline Console */
-            <>
-              {/* Presets */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-400 font-medium">Test Presets:</span>
-                {DEMO_PRESETS.map((p, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSend(p.query)}
-                    disabled={isLoading}
-                    className="px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs text-slate-300 transition-all font-medium flex items-center gap-1.5"
-                  >
-                    <Zap className="w-3 h-3 text-emerald-400" />
-                    <span>{p.label}</span>
-                  </button>
-                ))}
+      {/* Main Tabbed Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+        {/* TAB 1: LIVE AGENT HUD */}
+        {activeTab === 'agent' && (
+          <div className="space-y-6">
+            {/* Mode Switcher */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAgentMode('voice')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all ${
+                    agentMode === 'voice'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>LiveKit Voice Stream (WebRTC)</span>
+                </button>
+                <button
+                  onClick={() => setAgentMode('text')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all ${
+                    agentMode === 'text'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Text Query & Citation Inspection</span>
+                </button>
               </div>
 
-              {/* Chat Log */}
-              <div className="flex-1 flex flex-col gap-4">
-                {messages.map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => m.role === 'assistant' && setActiveInspector(m)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                      m.role === 'user'
-                        ? 'bg-slate-900/60 border-slate-800 ml-12'
-                        : activeInspector?.id === m.id
-                        ? 'bg-slate-900/90 border-emerald-500/50 shadow-lg shadow-emerald-950/20 mr-12'
-                        : 'bg-[#0c121e]/80 border-slate-800/80 hover:border-slate-700 mr-12'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {m.role === 'user' ? (
-                          <div className="p-1.5 bg-slate-800 rounded-lg text-slate-300">
-                            <User className="w-3.5 h-3.5" />
-                          </div>
-                        ) : (
-                          <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
-                            <Bot className="w-3.5 h-3.5" />
-                          </div>
-                        )}
-                        <span className="text-xs font-semibold text-slate-300">
-                          {m.role === 'user' ? 'User Query' : 'TrustMoss Agent'}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{m.timestamp}</span>
-                      </div>
-
-                      {m.trust && <TrustBadge trust={m.trust} />}
-                    </div>
-
-                    <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">{m.text}</p>
-
-                    {m.latency_trace && (
-                      <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] font-mono text-slate-400">
-                        <span>Total: {m.total_latency_ms}ms</span>
-                        <span className="text-emerald-400">Click to inspect verification hops</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
+              <div className="text-xs font-mono text-slate-500 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Moss Vector Cache: Sub-15ms Active</span>
               </div>
+            </div>
 
-              {/* Chat Input */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                className="sticky bottom-0 bg-[#090d14]/90 backdrop-blur-md pt-2"
-              >
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Enter prompt to evaluate through Trust Gateway..."
-                    disabled={isLoading}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 pr-12 font-medium"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isLoading || !input.trim()}
-                    className="absolute right-2 p-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-lg transition-colors"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-        </div>
-
-        {/* Right Telemetry & Inspection Sidebar */}
-        <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-slate-800 bg-[#0a0f19] p-5 flex flex-col gap-5 overflow-y-auto">
-          <div>
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 font-mono">
-              Live Trust Inspector
-            </h2>
-            {activeInspector ? (
-              <div className="flex flex-col gap-4">
-                <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
-                  <span className="text-xs text-slate-400 font-mono block mb-1">Status Verdict</span>
-                  <TrustBadge trust={activeInspector.trust} />
-                  <p className="text-xs text-slate-300 mt-2 font-medium">{activeInspector.trust?.reason}</p>
-                </div>
-
-                {/* Per-Hop Latency Waterfall */}
-                <div>
-                  <h3 className="text-xs font-semibold text-slate-300 mb-2 font-mono">
-                    Per-Hop Latency Waterfall ({activeInspector.total_latency_ms}ms)
-                  </h3>
-                  <LatencyWaterfall latencyTrace={activeInspector.latency_trace} />
-                </div>
-
-                {/* Moss Context Chunks */}
-                <div>
-                  <h3 className="text-xs font-semibold text-slate-300 mb-2 font-mono">
-                    Moss Context Chunks ({activeInspector.context_chunks?.length || 0})
-                  </h3>
-                  <ContextViewer chunks={activeInspector.context_chunks} />
-                </div>
-              </div>
+            {agentMode === 'voice' ? (
+              <LiveKitVoiceRoom onTurnLogged={handleVoiceTurnLogged} />
             ) : (
-              <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
-                Select an agent turn to inspect reliability metrics
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Chat Column */}
+                <div className="lg:col-span-2 flex flex-col bg-slate-900/60 border border-slate-800 rounded-2xl h-[640px] overflow-hidden">
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                    {messages.map((m) => (
+                      <div
+                        key={m.id}
+                        onClick={() => m.role === 'assistant' && setActiveInspector(m)}
+                        className={`flex gap-3 p-3.5 rounded-xl transition-all ${
+                          m.role === 'user'
+                            ? 'bg-slate-800/40 border border-slate-700/50 ml-12'
+                            : activeInspector?.id === m.id
+                            ? 'bg-slate-850 border border-emerald-500/40 shadow-lg shadow-emerald-950/20 mr-4 cursor-pointer'
+                            : 'bg-slate-900/80 border border-slate-800 hover:border-slate-700 mr-4 cursor-pointer'
+                        }`}
+                      >
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            m.role === 'user' ? 'bg-slate-700 text-slate-200' : 'bg-emerald-600/30 text-emerald-400'
+                          }`}
+                        >
+                          {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-300 capitalize text-[11px]">{m.role}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{m.timestamp}</span>
+                          </div>
+                          <p className="text-slate-200 leading-relaxed font-sans">{m.text}</p>
+                          {m.trust && (
+                            <div className="pt-1 flex items-center gap-2">
+                              <TrustBadge trust={m.trust} />
+                              {m.total_latency_ms && (
+                                <span className="text-[10px] font-mono text-slate-400">
+                                  {m.total_latency_ms.toFixed(1)} ms
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Demo Presets Bar */}
+                  <div className="px-4 py-2 bg-slate-950/60 border-t border-slate-800 flex items-center gap-2 overflow-x-auto text-xs">
+                    <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">Presets:</span>
+                    {DEMO_PRESETS.map((p, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSend(p.query)}
+                        disabled={isLoading}
+                        className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 whitespace-nowrap transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Input Box */}
+                  <div className="p-3 bg-slate-900/90 border-t border-slate-800 flex gap-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                      placeholder="Ask any enterprise question to verify Moss grounding..."
+                      disabled={isLoading}
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      onClick={() => handleSend()}
+                      disabled={isLoading || !input.trim()}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Real-Time Inspector Column */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Real-Time Reliability Inspector
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400">Glass-Box Tracing</span>
+                  </div>
+
+                  {activeInspector?.trust && (
+                    <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-300">Composite Trust Verdict</span>
+                        <TrustBadge trust={activeInspector.trust} />
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                        {activeInspector.trust.reason}
+                      </p>
+                    </div>
+                  )}
+
+                  {activeInspector?.latency_trace && (
+                    <LatencyWaterfall
+                      trace={activeInspector.latency_trace}
+                      totalMs={activeInspector.total_latency_ms}
+                    />
+                  )}
+
+                  {activeInspector?.context_chunks && (
+                    <ContextViewer chunks={activeInspector.context_chunks} />
+                  )}
+                </div>
               </div>
             )}
           </div>
-        </aside>
-      </div>
+        )}
 
-      {/* HITL Modal */}
+        {/* TAB 2: POSTGRESQL & REDIS EXPLORER */}
+        {activeTab === 'database' && <DatabaseStatsPanel />}
+
+        {/* TAB 3: CRISPE PROMPT CATALOG */}
+        {activeTab === 'catalog' && <CrispeCatalogViewer />}
+
+        {/* TAB 4: K6 SCALABILITY BENCHMARKS */}
+        {activeTab === 'scalability' && <K6BenchmarkDashboard />}
+      </main>
+
+      {/* HITL Review Modal */}
       <HitlQueueModal
         isOpen={hitlModalOpen}
         onClose={() => setHitlModalOpen(false)}
         flaggedItems={flaggedItems}
+        onResolve={(id) => {
+          setFlaggedItems((prev) => prev.filter((item) => (item.id || item.query_id) !== id));
+        }}
       />
     </div>
   );
