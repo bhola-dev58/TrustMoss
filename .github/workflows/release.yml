@@ -112,9 +112,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}    # Automatic — no secret setup needed
 
       - name: Log in to Docker Hub (optional — only if secret is configured)
-        if: env.DOCKER_USERNAME != ''
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        if: secrets.DOCKER_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -179,9 +177,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub (optional)
-        if: env.DOCKER_USERNAME != ''
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        if: secrets.DOCKER_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
