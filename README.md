@@ -21,7 +21,7 @@
 
 ---
 
-## 🏛️ System Architecture & 24-Node Topology
+## System Architecture & 24-Node Topology
 
 TrustMoss is structured across 7 decoupled microservice layers, enterprise persistence, and secret injection backends:
 
@@ -89,7 +89,7 @@ flowchart TD
 
 ---
 
-## ⚡ k6 OSS Scalability Testing Engine & Sub-45ms SLA Gate
+## k6 OSS Scalability Testing Engine & Sub-45ms SLA Gate
 
 TrustMoss includes a native, open-source performance testing harness directly integrated into the Gateway and Operations Console:
 * **Zero External Dependencies:** Auto-detects local `k6` executable (`K6_PATH` or `PATH`) and falls back cleanly to realistic asynchronous simulation.
@@ -104,38 +104,38 @@ TrustMoss includes a native, open-source performance testing harness directly in
 
 ---
 
-## 📋 Full Bidirectional Requirements Traceability Matrix (RTM)
+## Full Bidirectional Requirements Traceability Matrix (RTM)
 
 | Node | Architecture Node Name | Domain | Requirement ID | Measurable Acceptance Criteria (MAC) | Implementation File | Verification Test Suite | Status |
 | :---: | :--- | :--- | :--- | :--- | :--- | :--- | :---: |
-| **1** | Inbound Guardrails Scanner | Security | `FR-SEC-01` | `MAC-SEC-01.1–01.3` | `services/guardrails_service.py` | `test_evaluation_prompts.py` | ✅ VERIFIED |
-| **2** | Outbound Guardrails Scanner | Security | `FR-SEC-02` | `MAC-SEC-02.1–02.3` | `services/guardrails_service.py` | `test_microservices.py` | ✅ VERIFIED |
-| **3** | JWT & RBAC Auth Engine | Security | `FR-SEC-03` | `MAC-SEC-03.1–03.3` | `apps/api/auth.py` | `test_auth_security.py` | ✅ VERIFIED |
-| **4** | OWASP Security Headers | Security | `FR-SEC-04` | `MAC-SEC-04.1–04.3` | `apps/api/main.py` | `test_auth_security.py` | ✅ VERIFIED |
-| **5** | Cryptographic AEAD Core | Security | `FR-SEC-05` | `MAC-SEC-05.1–05.3` | `apps/api/crypto.py` | `test_crypto_encryption.py` | ✅ VERIFIED |
-| **6** | GDPR Retention & Erasure | Security | `FR-SEC-06` | `MAC-SEC-06.1–06.3` | `apps/api/retention.py` | `test_retention_gdpr.py` | ✅ VERIFIED |
-| **7** | Trust Gateway Orchestrator | Real-Time | `FR-RT-01` | `MAC-RT-01.1–01.3` | `apps/api/main.py` | `test_microservices.py` | ✅ VERIFIED |
-| **8** | Pre-Gen Relevance Gate | Real-Time | `FR-RT-02` | `MAC-RT-02.1–02.3` | `services/moss_service.py` | `test_microservices.py` | ✅ VERIFIED |
-| **9** | Groundedness Evaluator | Real-Time | `FR-RT-03` | `MAC-RT-03.1–03.3` | `services/evaluation_service.py` | `test_evaluation_prompts.py` | ✅ VERIFIED |
-| **10** | Hallucination Risk Classifier | Real-Time | `FR-RT-04` | `MAC-RT-04.1–04.3` | `services/evaluation_service.py` | `test_evaluation_prompts.py` | ✅ VERIFIED |
-| **11** | Trust Score Aggregator | Real-Time | `FR-RT-05` | `MAC-RT-05.1–05.3` | `apps/api/main.py` | `test_explainability.py` | ✅ VERIFIED |
-| **12** | Dynamic Circuit Breaker | Real-Time | `FR-RT-06` | `MAC-RT-06.1–06.3` | `apps/api/main.py` | `test_microservices.py` | ✅ VERIFIED |
-| **13** | OTel Latency Tracer | Real-Time | `FR-RT-07` | `MAC-RT-07.1–07.3` | `apps/api/voice_gateway.py` | `test_livekit_gateway.py` | ✅ VERIFIED |
-| **14** | Explainability Engine | Real-Time | `FR-RT-08` | `MAC-RT-08.1–08.3` | `apps/api/explainability.py` | `test_explainability.py` | ✅ VERIFIED |
-| **15** | LiveKit Token Service | Voice | `FR-VOICE-01` | `MAC-VOICE-01.1–01.3` | `apps/api/livekit_service.py` | `test_livekit_gateway.py` | ✅ VERIFIED |
-| **16** | Voice Interceptor & Breaker | Voice | `FR-VOICE-02` | `MAC-VOICE-02.1–02.3` | `apps/api/voice_gateway.py` | `test_livekit_gateway.py` | ✅ VERIFIED |
-| **17** | Autonomous Voice Worker | Voice | `FR-VOICE-03` | `MAC-VOICE-03.1–03.3` | `apps/api/livekit_agent_worker.py` | `test_crispe_prompts.py` | ✅ VERIFIED |
-| **18** | Moss Retrieval Engine Core | Moss Core | `FR-MOSS-01` | `MAC-MOSS-01.1–01.3` | `services/moss_service.py` | `test_microservices.py` | ✅ VERIFIED |
-| **19** | Knowledge Ingestion Pipeline | Moss Core | `FR-MOSS-02` | `MAC-MOSS-02.1–02.3` | `services/moss_service.py` | `test_microservices.py` | ✅ VERIFIED |
-| **20** | Index Version Registry | Moss Core | `FR-MOSS-03` | `MAC-MOSS-03.1–03.3` | `services/moss_service.py` | `test_microservices.py` | ✅ VERIFIED |
-| **21** | HITL Review Queue & Alerts | Governance | `FR-GOV-01` | `MAC-GOV-01.1–01.3` | `services/evaluation_service.py` | `test_crypto_encryption.py` | ✅ VERIFIED |
-| **22** | CRISPE Prompt Catalog | Governance | `FR-GOV-02` | `MAC-GOV-02.1–02.3` | `apps/api/prompts/catalog.py` | `test_prompt_catalog.py` | ✅ VERIFIED |
-| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1–01.4` | `apps/web/app/page.jsx` | `components.test.jsx` (10 tests) | ✅ VERIFIED |
-| **24** | k6 Scalability Engine & SLA Gate | Performance | `FR-PERF-01–04` | `MAC-PERF-01.1–02.3` | `apps/api/load_test.py` | `test_load_test.py` (11 tests) | ✅ VERIFIED |
+| **1** | Inbound Guardrails Scanner | Security | `FR-SEC-01` | `MAC-SEC-01.1–01.3` | `services/guardrails_service.py` | `test_evaluation_prompts.py` | VERIFIED |
+| **2** | Outbound Guardrails Scanner | Security | `FR-SEC-02` | `MAC-SEC-02.1–02.3` | `services/guardrails_service.py` | `test_microservices.py` | VERIFIED |
+| **3** | JWT & RBAC Auth Engine | Security | `FR-SEC-03` | `MAC-SEC-03.1–03.3` | `apps/api/auth.py` | `test_auth_security.py` | VERIFIED |
+| **4** | OWASP Security Headers | Security | `FR-SEC-04` | `MAC-SEC-04.1–04.3` | `apps/api/main.py` | `test_auth_security.py` | VERIFIED |
+| **5** | Cryptographic AEAD Core | Security | `FR-SEC-05` | `MAC-SEC-05.1–05.3` | `apps/api/crypto.py` | `test_crypto_encryption.py` | VERIFIED |
+| **6** | GDPR Retention & Erasure | Security | `FR-SEC-06` | `MAC-SEC-06.1–06.3` | `apps/api/retention.py` | `test_retention_gdpr.py` | VERIFIED |
+| **7** | Trust Gateway Orchestrator | Real-Time | `FR-RT-01` | `MAC-RT-01.1–01.3` | `apps/api/main.py` | `test_microservices.py` | VERIFIED |
+| **8** | Pre-Gen Relevance Gate | Real-Time | `FR-RT-02` | `MAC-RT-02.1–02.3` | `services/moss_service.py` | `test_microservices.py` | VERIFIED |
+| **9** | Groundedness Evaluator | Real-Time | `FR-RT-03` | `MAC-RT-03.1–03.3` | `services/evaluation_service.py` | `test_evaluation_prompts.py` | VERIFIED |
+| **10** | Hallucination Risk Classifier | Real-Time | `FR-RT-04` | `MAC-RT-04.1–04.3` | `services/evaluation_service.py` | `test_evaluation_prompts.py` | VERIFIED |
+| **11** | Trust Score Aggregator | Real-Time | `FR-RT-05` | `MAC-RT-05.1–05.3` | `apps/api/main.py` | `test_explainability.py` | VERIFIED |
+| **12** | Dynamic Circuit Breaker | Real-Time | `FR-RT-06` | `MAC-RT-06.1–06.3` | `apps/api/main.py` | `test_microservices.py` | VERIFIED |
+| **13** | OTel Latency Tracer | Real-Time | `FR-RT-07` | `MAC-RT-07.1–07.3` | `apps/api/voice_gateway.py` | `test_livekit_gateway.py` | VERIFIED |
+| **14** | Explainability Engine | Real-Time | `FR-RT-08` | `MAC-RT-08.1–08.3` | `apps/api/explainability.py` | `test_explainability.py` | VERIFIED |
+| **15** | LiveKit Token Service | Voice | `FR-VOICE-01` | `MAC-VOICE-01.1–01.3` | `apps/api/livekit_service.py` | `test_livekit_gateway.py` | VERIFIED |
+| **16** | Voice Interceptor & Breaker | Voice | `FR-VOICE-02` | `MAC-VOICE-02.1–02.3` | `apps/api/voice_gateway.py` | `test_livekit_gateway.py` | VERIFIED |
+| **17** | Autonomous Voice Worker | Voice | `FR-VOICE-03` | `MAC-VOICE-03.1–03.3` | `apps/api/livekit_agent_worker.py` | `test_crispe_prompts.py` | VERIFIED |
+| **18** | Moss Retrieval Engine Core | Moss Core | `FR-MOSS-01` | `MAC-MOSS-01.1–01.3` | `services/moss_service.py` | `test_microservices.py` | VERIFIED |
+| **19** | Knowledge Ingestion Pipeline | Moss Core | `FR-MOSS-02` | `MAC-MOSS-02.1–02.3` | `services/moss_service.py` | `test_microservices.py` | VERIFIED |
+| **20** | Index Version Registry | Moss Core | `FR-MOSS-03` | `MAC-MOSS-03.1–03.3` | `services/moss_service.py` | `test_microservices.py` | VERIFIED |
+| **21** | HITL Review Queue & Alerts | Governance | `FR-GOV-01` | `MAC-GOV-01.1–01.3` | `services/evaluation_service.py` | `test_crypto_encryption.py` | VERIFIED |
+| **22** | CRISPE Prompt Catalog | Governance | `FR-GOV-02` | `MAC-GOV-02.1–02.3` | `apps/api/prompts/catalog.py` | `test_prompt_catalog.py` | VERIFIED |
+| **23** | Next.js Reliability HUD & UI | User Interface | `FR-UI-01` | `MAC-UI-01.1–01.4` | `apps/web/app/page.jsx` | `components.test.jsx` (10 tests) | VERIFIED |
+| **24** | k6 Scalability Engine & SLA Gate | Performance | `FR-PERF-01–04` | `MAC-PERF-01.1–02.3` | `apps/api/load_test.py` | `test_load_test.py` (11 tests) | VERIFIED |
 
 ---
 
-## 📚 Technical Documentation & Traceability
+## Technical Documentation & Traceability
 
 | Document | Link | Description |
 | :--- | :--- | :--- |
@@ -149,7 +149,7 @@ TrustMoss includes a native, open-source performance testing harness directly in
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Option 1 — Docker Compose (Recommended)
 
@@ -198,7 +198,7 @@ bandit -r apps/api/ services/ -ll
 
 ---
 
-## 🔒 Security, Privacy & Compliance
+## Security, Privacy & Compliance
 
 - **Authentication & RBAC:** Cryptographic JWT tokens (HS256/RS256) enforcing role separation (`agent`, `reviewer`, `admin`).
 - **Data-at-Rest Protection:** AES-256-GCM AEAD encryption with 96-bit unique nonces and Additional Authenticated Data (AAD) context binding.
@@ -207,7 +207,7 @@ bandit -r apps/api/ services/ -ll
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create your feature branch: `git checkout -b feat/your-feature-name`
@@ -217,6 +217,6 @@ bandit -r apps/api/ services/ -ll
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
