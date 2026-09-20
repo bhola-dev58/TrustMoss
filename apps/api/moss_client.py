@@ -41,8 +41,10 @@ MOSS_PROJECT_ID = (
 )
 MOSS_PROJECT_KEY = (
     _get_secret("MOSS_PROJECT_KEY")
+    or _get_secret("MOSS_API_KEY")
     or os.getenv("MOSS_PROJECT_KEY")
     or os.getenv("MOSS_PROJECTKEY")
+    or os.getenv("MOSS_API_KEY")
     or "ci-project-key"
 )
 MOSS_INDEX_NAME = (
