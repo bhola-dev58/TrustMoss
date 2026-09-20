@@ -3,9 +3,6 @@ const nextConfig = {
   // Standalone mode is only for Docker builds; Vercel uses its native serverless output
   ...(process.env.DOCKER_BUILD ? { output: 'standalone' } : {}),
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
