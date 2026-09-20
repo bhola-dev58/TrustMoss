@@ -18,9 +18,10 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json(
-      { count: 0, queries: [], error: err.message },
-      { status: 502 }
-    );
+    return NextResponse.json({
+      count: 0,
+      queries: [],
+      connected: false,
+    });
   }
 }

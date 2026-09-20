@@ -26,6 +26,9 @@ import LiveKitVoiceRoom from '../components/voice/LiveKitVoiceRoom';
 import DatabaseStatsPanel from '../components/database/DatabaseStatsPanel';
 import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer';
 import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard';
+import AuthButton from '../components/auth/AuthButton';
+import LoginGate from '../components/auth/LoginGate';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
 const DEMO_PRESETS = [
   {
@@ -45,7 +48,8 @@ const DEMO_PRESETS = [
   },
 ];
 
-export default function Home() {
+function OperationsConsole({ isDemoMode, onExitDemo }) {
+  const { user, getIdToken } = useAuth();
   const [activeTab, setActiveTab] = useState('agent'); // 'agent', 'database', 'catalog', 'scalability'
   const [agentMode, setAgentMode] = useState('voice'); // 'voice' or 'text'
   const [messages, setMessages] = useState([
@@ -112,10 +116,18 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const token = await getIdToken?.().catch(() => null);
       const res = await fetch('/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          query: q,
+          operator_id: user?.uid || 'anonymous-demo',
+          operator_email: user?.email || 'demo@trustmoss.local',
+        }),
       });
 
       if (!res.ok) throw new Error(`Gateway returned HTTP ${res.status}`);
@@ -280,7 +292,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* HITL Action */}
+        {/* Header Actions (HITL + Google Auth) */}
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setHitlModalOpen(true)}
@@ -294,8 +306,28 @@ export default function Home() {
               </span>
             )}
           </button>
+
+          <AuthButton />
         </div>
       </header>
+
+      {/* Demo Sandbox Alert Banner */}
+      {isDemoMode && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-300">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>
+              <strong>Demo Sandbox Mode:</strong> Operator session unverified. Sign in with Google Workspace to enable authenticated audit logging and LiveKit room token access.
+            </span>
+          </div>
+          <button
+            onClick={onExitDemo}
+            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 rounded-lg font-medium transition-colors"
+          >
+            Sign In Now
+          </button>
+        </div>
+      )}
 
       {/* Main Tabbed Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
@@ -478,5 +510,41 @@ export default function Home() {
         }}
       />
     </div>
+  );
+}
+
+function ConsoleGate() {
+  const { user, loading } = useAuth();
+  const [demoMode, setDemoMode] = useState(false);
+
+  if (loading) {
+    return (
+      <div
+        data-testid="auth-verifying-splash"
+        className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col items-center justify-center p-6"
+      >
+        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-3" />
+        <span className="text-xs text-slate-400 font-mono">Verifying enterprise operator credentials...</span>
+      </div>
+    );
+  }
+
+  if (!user && !demoMode) {
+    return <LoginGate onEnterGuestMode={() => setDemoMode(true)} />;
+  }
+
+  return (
+    <OperationsConsole
+      isDemoMode={!user && demoMode}
+      onExitDemo={() => setDemoMode(false)}
+    />
+  );
+}
+
+export default function Home() {
+  return (
+    <AuthProvider>
+      <ConsoleGate />
+    </AuthProvider>
   );
 }
