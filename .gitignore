@@ -75,3 +75,7 @@ migrations/__pycache__/
 *.pem
 *.key
 *.pfx
+
+# Local Agent Rules & Customizations (Never push)
+rules/
+.agents/
