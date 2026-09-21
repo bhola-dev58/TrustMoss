@@ -80,3 +80,5 @@ migrations/__pycache__/
 # Local Agent Rules & Customizations (Never push)
 rules/
 .agents/
+.skills/
+

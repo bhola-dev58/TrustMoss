@@ -6,8 +6,9 @@ const API_BASE_URL =
   'http://localhost:8000';
 
 export async function POST(request) {
+  let body = {};
   try {
-    const body = await request.json();
+    body = await request.json();
     const authHeader = request.headers.get('authorization');
     const headers = {
       'Content-Type': 'application/json',

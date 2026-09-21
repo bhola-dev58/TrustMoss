@@ -123,6 +123,52 @@ SAMPLE_DOCS = [
             "Cancellation takes effect immediately for annual plans with no pro-rated refund."
         ),
     },
+    {
+        "id": "kb-sec-001",
+        "text": (
+            "Enterprise AI Security Policy: All AI agent responses undergo automated 5-stage guardrails: "
+            "pre-LLM relevance verification, zero-trust context grounding, and regex+entropy PII masking. "
+            "Direct system prompt leakage or administrative override attempts are automatically logged and blocked."
+        ),
+    },
+    {
+        "id": "kb-sec-002",
+        "text": (
+            "Incident Response & Circuit Breakers: Repeated trust failures exceeding a 3-strike threshold "
+            "automatically trip the agent circuit breaker, isolating the agent session and requiring "
+            "Human-In-The-Loop (HITL) manual clearance before traffic is restored."
+        ),
+    },
+    {
+        "id": "kb-fin-001",
+        "text": (
+            "Financial Services Compliance: Automated customer transaction inquiries must adhere to strict PCI-DSS "
+            "and AML guidelines. AI agents are strictly prohibited from providing unsolicited financial, investment, "
+            "or cryptocurrency advisory."
+        ),
+    },
+    {
+        "id": "kb-fin-002",
+        "text": (
+            "Auditability & Ledger Records: All customer transaction queries generate an immutable, factorized "
+            "cryptographic audit trail stored in PostgreSQL with latency tracing in Redis for SOC2 Type II compliance."
+        ),
+    },
+    {
+        "id": "kb-hlth-001",
+        "text": (
+            "Clinical AI Safety & HIPAA Protocol: Protected Health Information (PHI) including patient identifiers, "
+            "medical record numbers, and biometric data are redacted on both inbound and outbound voice/text channels "
+            "under HIPAA Title II regulations."
+        ),
+    },
+    {
+        "id": "kb-hlth-002",
+        "text": (
+            "Clinical Grounding Threshold: Medical queries require a minimum Moss retrieval confidence score of 0.85. "
+            "Unverified clinical assertions are strictly halted to prevent diagnostic hallucinations."
+        ),
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -185,15 +231,27 @@ async def init():
             _index_loaded = True
 
 
-async def retrieve(query: str, top_k: int = 3) -> dict:
+DOMAIN_PREFIXES: dict[str, str] = {
+    "security": "In the context of enterprise AI security, zero-trust policies, and threat detection: ",
+    "finance": "In the context of financial services compliance, risk management, and audit trails: ",
+    "healthcare": "In the context of clinical AI safety, patient privacy, and HIPAA compliance: ",
+    "general": "",
+}
+
+
+async def retrieve(query: str, top_k: int = 3, domain: str = "general") -> dict:
     """
     Query Moss and return context chunks with scores.
     Falls back to deterministic mock if Moss is unavailable.
+    Supports domain preset context routing (security, finance, healthcare, general).
     """
+    prefix = DOMAIN_PREFIXES.get((domain or "").lower(), "")
+    contextual_query = f"{prefix}{query}" if prefix else query
+
     if _moss_client is not None:
-        return await _retrieve_real(query, top_k)
+        return await _retrieve_real(contextual_query, top_k)
     else:
-        return _retrieve_mock(query, top_k)
+        return _retrieve_mock(contextual_query, top_k)
 
 
 async def _retrieve_real(query: str, top_k: int) -> dict:
@@ -216,7 +274,7 @@ async def _retrieve_real(query: str, top_k: int) -> dict:
 
 def _retrieve_mock(query: str, top_k: int) -> dict:
     """
-    Deterministic mock: scores docs by simple keyword overlap so the pipeline
+    Deterministic mock: scores docs by keyword overlap so the pipeline
     behaves realistically (off-topic queries get low scores → WARN/FAIL trust).
     """
     import re

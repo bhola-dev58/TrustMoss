@@ -17,6 +17,7 @@ import {
   Bot,
   User,
   CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import TrustBadge from '../components/hud/TrustBadge';
 import LatencyWaterfall from '../components/hud/LatencyWaterfall';
@@ -26,6 +27,8 @@ import LiveKitVoiceRoom from '../components/voice/LiveKitVoiceRoom';
 import DatabaseStatsPanel from '../components/database/DatabaseStatsPanel';
 import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer';
 import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard';
+import AttackSimulator from '../components/attack/AttackSimulator';
+import ComplianceExportButton from '../components/audit/ComplianceExportButton';
 import AuthButton from '../components/auth/AuthButton';
 import LoginGate from '../components/auth/LoginGate';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -50,8 +53,9 @@ const DEMO_PRESETS = [
 
 function OperationsConsole({ isDemoMode, onExitDemo }) {
   const { user, getIdToken } = useAuth();
-  const [activeTab, setActiveTab] = useState('agent'); // 'agent', 'database', 'catalog', 'scalability'
+  const [activeTab, setActiveTab] = useState('agent'); // 'agent', 'database', 'catalog', 'scalability', 'attack'
   const [agentMode, setAgentMode] = useState('voice'); // 'voice' or 'text'
+  const [selectedDomain, setSelectedDomain] = useState('general');
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -125,6 +129,7 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         },
         body: JSON.stringify({
           query: q,
+          domain: selectedDomain,
           operator_id: user?.uid || 'anonymous-demo',
           operator_email: user?.email || 'demo@trustmoss.local',
         }),
@@ -290,10 +295,24 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
             <Gauge className="w-3.5 h-3.5" />
             <span>k6 Benchmarks</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('attack')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'attack'
+                ? 'bg-red-600 text-white shadow font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-red-400" />
+            <span>Attack Lab</span>
+          </button>
         </div>
 
-        {/* Header Actions (HITL + Google Auth) */}
+        {/* Header Actions (HITL + Compliance + Google Auth) */}
         <div className="flex items-center gap-2.5">
+          <ComplianceExportButton />
+
           <button
             onClick={() => setHitlModalOpen(true)}
             className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-medium rounded-xl flex items-center gap-2 text-slate-300 transition-colors"
@@ -359,11 +378,33 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                   <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
                   <span>Text Query & Citation Inspection</span>
                 </button>
-              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-[#131b2e] border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
+                  <span className="text-slate-400 font-medium">Domain:</span>
+                  <select
+                    value={selectedDomain}
+                    onChange={(e) => setSelectedDomain(e.target.value)}
+                    className="bg-transparent text-emerald-400 font-semibold focus:outline-none cursor-pointer"
+                  >
+                    <option value="general" className="bg-slate-900 text-slate-200">
+                      General (SaaS Policies)
+                    </option>
+                    <option value="security" className="bg-slate-900 text-slate-200">
+                      Security (Zero-Trust)
+                    </option>
+                    <option value="finance" className="bg-slate-900 text-slate-200">
+                      Finance (PCI-DSS)
+                    </option>
+                    <option value="healthcare" className="bg-slate-900 text-slate-200">
+                      Healthcare (HIPAA)
+                    </option>
+                  </select>
+                </div>
 
-              <div className="text-xs font-mono text-slate-500 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>Moss Vector Cache: Sub-15ms Active</span>
+                <div className="text-xs font-mono text-slate-500 hidden sm:flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>Moss Cache: &lt;15ms</span>
+                </div>
               </div>
             </div>
 
@@ -466,7 +507,10 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                     <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-slate-300">Composite Trust Verdict</span>
-                        <TrustBadge trust={activeInspector.trust} />
+                        <TrustBadge
+                          trust={activeInspector.trust}
+                          history={messages.filter((m) => m.trust)}
+                        />
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed font-sans">
                         {activeInspector.trust.reason}
@@ -498,6 +542,9 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
 
         {/* TAB 4: K6 SCALABILITY BENCHMARKS */}
         {activeTab === 'scalability' && <K6BenchmarkDashboard />}
+
+        {/* TAB 5: ADVERSARIAL ATTACK SIMULATOR & STRESS MATRIX */}
+        {activeTab === 'attack' && <AttackSimulator />}
       </main>
 
       {/* HITL Review Modal */}

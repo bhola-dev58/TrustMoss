@@ -198,6 +198,61 @@ bandit -r apps/api/ services/ -ll
 
 ---
 
+## 8-Hop Runtime Guardrail & Zero-Trust Retrieval Flow
+
+Every conversational turn or text query executes across a zero-trust multi-hop verification pipeline before any generation reaches the end user:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client / Spoken Utterance
+    participant Web as Next.js Console / LiveKit
+    participant GW as Trust Gateway (FastAPI)
+    participant Guard as Inbound Guardrails & PII
+    participant Moss as Moss Vector Engine (Sub-15ms)
+    participant LLM as Groq Llama-3.1 (CRISPE)
+    participant Eval as Groundedness & NLI Judge
+    participant CB as Circuit Breaker & HITL Queue
+    participant DB as Postgres 16 & Redis 7
+
+    User->>Web: Audio Turn / Text Query
+    Web->>GW: POST /api/query (domain, payload)
+    GW->>Guard: 1. Inbound Speech/Prompt Injection Check
+    alt Injection Detected
+        Guard-->>GW: Intercepted (LLM01 / Attack Block)
+        GW->>CB: Record Strike (Trip Breaker if >= 3)
+        GW-->>Web: Sanitized Defense Alert + Zero-Exposure
+    else Input Safe
+        GW->>Moss: 2. Domain-Contextualized Retrieval (top_k=3)
+        Moss-->>GW: Verified Chunks + Relevance Score (<15ms)
+        GW->>Guard: 3. Pre-LLM Relevance Classifier
+        GW->>LLM: 4. Synthesize Answer (CRISPE Template)
+        LLM-->>GW: Raw Answer Candidate
+        GW->>Guard: 5. Outbound PII Redaction Scan (Entropy + Regex)
+        GW->>Eval: 6. Groundedness & NLI Factuality Verification
+        Eval-->>GW: Entailment Score + Risk Classification
+        GW->>CB: 7. Composite Trust Score Aggregation
+        GW->>DB: 8. Immutable Audit Trail (Postgres) & Redis Cache
+        GW-->>Web: Verified Answer + Factorized Explanation & Sparkline
+        Web-->>User: Safe Rendered Audio / Text
+    end
+```
+
+---
+
+## PRD Traceability & Sprint Criteria Matrix
+
+| Hackathon Requirement | TrustMoss Architectural Implementation | Traceability & Source |
+| :--- | :--- | :--- |
+| **Fast Retrieval** | Sub-15ms vector retrieval with domain-contextualized query prefixing (`security`, `finance`, `healthcare`, `general`) | `apps/api/moss_client.py`<br/>`apps/web/components/hud/ContextViewer.jsx` |
+| **Continuous Context Evaluation** | Two-tier NLI entailment scoring and tri-state hallucination risk categorization (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) | `services/evaluation/evaluator.py`<br/>`prompts/crispe.py::GROUNDEDNESS_JUDGE_V1` |
+| **Latency Tracing** | Microsecond-accurate pipeline stage tracing with interactive visual waterfall HUD in Next.js 14 App Router | `apps/api/tracer.py`<br/>`apps/web/components/hud/LatencyWaterfall.jsx` |
+| **Real-Time Agent Guardrails** | Inbound speech injection filter, Presidio & regex PII masking, pre-LLM relevance verification, and automated circuit breaker | `apps/api/voice_gateway.py`<br/>`apps/api/guardrails/` |
+| **Adversarial Stress Testing** | Interactive Attack Lab testing 8 attack vectors against OWASP Top 10 for LLM with 1-click batch simulation | `apps/api/main.py::/api/attack/simulate`<br/>`apps/web/components/attack/AttackSimulator.jsx` |
+| **Auditability & Compliance** | Certified JSON audit export covering GDPR (Articles 15/17/25), NIST AI RMF 1.0, and EU AI Act Article 13 | `apps/api/main.py::/api/compliance/audit-report`<br/>`apps/web/components/audit/ComplianceExportButton.jsx` |
+
+---
+
 ## Security, Privacy & Compliance
 
 - **Authentication & RBAC:** Cryptographic JWT tokens (HS256/RS256) enforcing role separation (`agent`, `reviewer`, `admin`).
