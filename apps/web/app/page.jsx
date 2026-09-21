@@ -240,6 +240,10 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         onClose={() => setSidebarOpen(false)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        agentMode={agentMode}
+        setAgentMode={setAgentMode}
+        selectedDomain={selectedDomain}
+        setSelectedDomain={setSelectedDomain}
       />
 
       {/* Main Workspace Area */}
@@ -321,63 +325,6 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         {/* TAB 1: LIVE AGENT HUD */}
         {activeTab === 'agent' && (
           <div className="space-y-6">
-            {/* Mode Switcher & Domain Selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#333333] pb-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setAgentMode('voice')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${
-                    agentMode === 'voice'
-                      ? 'bg-[#FF8C00]/15 border-[#FF8C00]/50 text-[#FFC107] shadow-sm'
-                      : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-                  }`}
-                >
-                  <Radio className="w-3.5 h-3.5 text-[#FF8C00]" />
-                  <span>LiveKit Voice Stream (WebRTC)</span>
-                </button>
-                <button
-                  onClick={() => setAgentMode('text')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all cursor-pointer ${
-                    agentMode === 'text'
-                      ? 'bg-[#FF8C00]/15 border-[#FF8C00]/50 text-[#FFC107] shadow-sm'
-                      : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Text Query &amp; Citation Inspection</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-[#1E1E1E] border border-[#333333] rounded-xl px-2.5 py-1 text-xs">
-                  <span className="text-[#9AA0A6] font-medium">Domain:</span>
-                  <select
-                    value={selectedDomain}
-                    onChange={(e) => setSelectedDomain(e.target.value)}
-                    className="bg-transparent text-[#FFC107] font-semibold focus:outline-none cursor-pointer"
-                  >
-                    <option value="general" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                      General (SaaS Policies)
-                    </option>
-                    <option value="security" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                      Security (Zero-Trust)
-                    </option>
-                    <option value="finance" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                      Finance (PCI-DSS)
-                    </option>
-                    <option value="healthcare" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                      Healthcare (HIPAA)
-                    </option>
-                  </select>
-                </div>
-
-                <div className="text-xs font-mono text-[#9AA0A6] hidden sm:flex items-center gap-2 bg-[#1E1E1E] px-2.5 py-1 rounded-xl border border-[#333333]">
-                  <span className="w-2 h-2 rounded-full bg-[#FF8C00] animate-pulse" />
-                  <span>Moss Cache: &lt;15ms</span>
-                </div>
-              </div>
-            </div>
-
             {agentMode === 'voice' ? (
               <LiveKitVoiceRoom onTurnLogged={handleVoiceTurnLogged} />
             ) : (
