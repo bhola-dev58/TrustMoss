@@ -66,7 +66,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
   const [statusNotice, setStatusNotice] = useState('');
   const [waveformLevels, setWaveformLevels] = useState([15, 28, 45, 65, 38, 20, 48, 85, 55, 32, 18, 28]);
   const [voices, setVoices] = useState([]);
-  const [voicePersona, setVoicePersona] = useState('aura');
+  const [voicePersona, setVoicePersona] = useState('indic');
   const [activeVoiceName, setActiveVoiceName] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -226,6 +226,22 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
     const englishVoices = availableVoices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('en'));
     const candidates = englishVoices.length > 0 ? englishVoices : availableVoices;
 
+    if (persona === 'indic') {
+      // Native Indian English voice (Priya / Aarav / Neerja / Heera / Ravi / Rishi / Google English India)
+      return (
+        candidates.find((v) =>
+          /en[-_]IN|hi[-_]IN|India|Indian|Neerja|Heera|Ravi|Prabhat|Rishi|Veena|Lekha|Sangeeta/i.test(
+            v.lang + ' ' + v.name
+          )
+        ) ||
+        availableVoices.find((v) =>
+          /en[-_]IN|hi[-_]IN|India|Indian/i.test(v.lang + ' ' + v.name)
+        ) ||
+        candidates.find((v) => /Google/i.test(v.name)) ||
+        candidates[0]
+      );
+    }
+
     if (persona === 'aura') {
       // Natural expressive female voice (Google US English, Jenny, Samantha, Ava, Victoria, Zira, Neural)
       return (
@@ -323,8 +339,8 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
       }
 
       // Calibrated natural pacing & intonation for real voice timbre
-      utterance.rate = voicePersona === 'aura' ? 0.98 : voicePersona === 'echo' ? 0.96 : 1.0;
-      utterance.pitch = voicePersona === 'aura' ? 1.04 : voicePersona === 'echo' ? 0.94 : 1.0;
+      utterance.rate = voicePersona === 'aura' ? 0.98 : voicePersona === 'echo' ? 0.96 : voicePersona === 'indic' ? 0.98 : 1.0;
+      utterance.pitch = voicePersona === 'aura' ? 1.04 : voicePersona === 'echo' ? 0.94 : voicePersona === 'indic' ? 1.02 : 1.0;
       utterance.volume = 1.0;
 
       utterance.onstart = () => setIsSpeaking(true);
@@ -352,7 +368,9 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
   const testRealVoice = () => {
     unlockAudioEngine();
     speakText(
-      voicePersona === 'aura'
+      voicePersona === 'indic'
+        ? 'Namaste! I am your TrustMoss zero-latency voice gateway assistant, streaming certified real-time audio.'
+        : voicePersona === 'aura'
         ? 'Hello! I am Aura, your zero-latency voice assistant powered by TrustMoss.'
         : voicePersona === 'echo'
         ? 'Greetings! I am Echo, streaming verified real-time audio with active circuit breaker defense.'
@@ -582,14 +600,28 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
+            onClick={() => setVoicePersona('indic')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              voicePersona === 'indic'
+                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
+                : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
+            }`}
+            title="Native Indian English accent (en-IN)"
+          >
+            Priya / Aarav (Indian English)
+          </button>
+
+          <button
+            type="button"
             onClick={() => setVoicePersona('aura')}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               voicePersona === 'aura'
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
                 : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
             }`}
+            title="Natural US English female voice"
           >
-            Aura (Natural Female)
+            Aura (Natural US)
           </button>
 
           <button
@@ -600,6 +632,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
                 : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
             }`}
+            title="Natural US English male voice"
           >
             Echo (Natural Male)
           </button>
@@ -612,6 +645,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
                 : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
             }`}
+            title="British accent voice"
           >
             Studio (British)
           </button>
