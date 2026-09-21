@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  Play,
+  Square,
+  Sliders,
 } from 'lucide-react';
 import LatencyWaterfall from '../hud/LatencyWaterfall';
 import TrustBadge from '../hud/TrustBadge';
@@ -62,6 +65,10 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
   const [speechSupported, setSpeechSupported] = useState(true);
   const [statusNotice, setStatusNotice] = useState('');
   const [waveformLevels, setWaveformLevels] = useState([15, 28, 45, 65, 38, 20, 48, 85, 55, 32, 18, 28]);
+  const [voices, setVoices] = useState([]);
+  const [voicePersona, setVoicePersona] = useState('aura');
+  const [activeVoiceName, setActiveVoiceName] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const recognitionRef = useRef(null);
 
@@ -198,13 +205,95 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    stopSpeech();
     setInRoom(false);
     setToken(null);
     setIsListening(false);
     setStatusNotice('Voice gateway disconnected.');
+  };
+
+  const unlockAudioEngine = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    }
+  };
+
+  const resolveVoice = (availableVoices, persona) => {
+    if (!availableVoices || availableVoices.length === 0) return null;
+
+    const englishVoices = availableVoices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('en'));
+    const candidates = englishVoices.length > 0 ? englishVoices : availableVoices;
+
+    if (persona === 'aura') {
+      // Natural expressive female voice (Google US English, Jenny, Samantha, Ava, Victoria, Zira, Neural)
+      return (
+        candidates.find((v) =>
+          /Google US English|Jenny|Samantha|Ava|Victoria|Zira|Natural.*Female|Female.*Natural|Neural.*Female/i.test(v.name)
+        ) ||
+        candidates.find((v) => /Google/i.test(v.name) && !/Male/i.test(v.name)) ||
+        candidates.find((v) => /Female/i.test(v.name)) ||
+        candidates.find((v) => /Natural|Neural/i.test(v.name)) ||
+        candidates[0]
+      );
+    }
+
+    if (persona === 'echo') {
+      // Natural warm male voice (Google UK English Male, Guy, Daniel, Alex, David, George)
+      return (
+        candidates.find((v) =>
+          /Google.*Male|Guy|Daniel|Alex|David|George|Natural.*Male|Male.*Natural|Neural.*Male/i.test(v.name)
+        ) ||
+        candidates.find((v) => /Male/i.test(v.name)) ||
+        candidates.find((v) => /Daniel|Alex|David/i.test(v.name)) ||
+        candidates[0]
+      );
+    }
+
+    if (persona === 'studio') {
+      // Studio British / International accent
+      return (
+        candidates.find((v) =>
+          /en-GB|en_GB|British|Google UK|Oliver|Arthur|Libby|Maisie/i.test(v.name + v.lang)
+        ) ||
+        candidates.find((v) => /en-GB/i.test(v.lang)) ||
+        candidates[0]
+      );
+    }
+
+    return (
+      candidates.find((v) => /Natural|Neural|Google/i.test(v.name)) ||
+      candidates[0]
+    );
+  };
+
+  // Load and index available browser voices for natural human audio
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    const updateVoices = () => {
+      const available = window.speechSynthesis.getVoices() || [];
+      if (available.length > 0) {
+        setVoices(available);
+        const resolved = resolveVoice(available, voicePersona);
+        if (resolved) {
+          setActiveVoiceName(resolved.name);
+        }
+      }
+    };
+
+    updateVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, [voicePersona]);
+
+  const stopSpeech = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
   };
 
   const speakText = (text, isSuppressed) => {
@@ -212,14 +301,64 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
       return;
     }
     try {
+      unlockAudioEngine();
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
+
+      // Clean speech text for natural listening (strip markdown and URLs)
+      const cleaned = text
+        .replace(/[*_#`~]/g, '')
+        .replace(/https?:\/\/\S+/g, 'link')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .trim();
+
+      if (!cleaned) return;
+
+      const utterance = new SpeechSynthesisUtterance(cleaned);
+      const availableVoices = voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+      const selected = resolveVoice(availableVoices, voicePersona);
+
+      if (selected) {
+        utterance.voice = selected;
+        utterance.lang = selected.lang || 'en-US';
+      }
+
+      // Calibrated natural pacing & intonation for real voice timbre
+      utterance.rate = voicePersona === 'aura' ? 0.98 : voicePersona === 'echo' ? 0.96 : 1.0;
+      utterance.pitch = voicePersona === 'aura' ? 1.04 : voicePersona === 'echo' ? 0.94 : 1.0;
+      utterance.volume = 1.0;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (e) => {
+        console.warn('Browser TTS error:', e);
+        setIsSpeaking(false);
+      };
+
+      // Slight delay avoids Chromium cancel/speak collision bug
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.warn('Speech invocation error:', err);
+          setIsSpeaking(false);
+        }
+      }, 20);
     } catch (e) {
       console.warn('Browser TTS playback error:', e);
+      setIsSpeaking(false);
     }
+  };
+
+  const testRealVoice = () => {
+    unlockAudioEngine();
+    speakText(
+      voicePersona === 'aura'
+        ? 'Hello! I am Aura, your zero-latency voice assistant powered by TrustMoss.'
+        : voicePersona === 'echo'
+        ? 'Greetings! I am Echo, streaming verified real-time audio with active circuit breaker defense.'
+        : 'Welcome to TrustMoss. All voice hops are certified with sub-fifty millisecond latency.',
+      false
+    );
   };
 
   const handleSpeechTurn = async (spokenText) => {
@@ -421,6 +560,86 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
         </div>
       )}
 
+      {/* Real Voice Persona & Speech Synthesis Calibration */}
+      <div className="p-3 bg-[#121212] border border-[#333333] rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-inner">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-[#FF8C00]/10 border border-[#FF8C00]/30 rounded-lg shrink-0">
+            <Sliders className="w-4 h-4 text-[#FF8C00]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#FFFFFF]">Neural Voice Engine:</span>
+              <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-semibold bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30">
+                Natural Cadence
+              </span>
+            </div>
+            <p className="text-[11px] text-[#9AA0A6] font-mono line-clamp-1">
+              Active: <span className="text-[#FFFFFF]">{activeVoiceName || 'Detecting Browser Neural Voices...'}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setVoicePersona('aura')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              voicePersona === 'aura'
+                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
+                : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
+            }`}
+          >
+            Aura (Natural Female)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVoicePersona('echo')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              voicePersona === 'echo'
+                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
+                : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
+            }`}
+          >
+            Echo (Natural Male)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVoicePersona('studio')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              voicePersona === 'studio'
+                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
+                : 'bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] border border-[#333333]'
+            }`}
+          >
+            Studio (British)
+          </button>
+
+          {isSpeaking ? (
+            <button
+              type="button"
+              onClick={stopSpeech}
+              className="px-2.5 py-1 bg-rose-500/20 border border-rose-500/50 hover:bg-rose-500/30 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer animate-pulse"
+              title="Stop speaking"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>Speaking (Stop)</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={testRealVoice}
+              className="px-2.5 py-1 bg-[#242424] hover:bg-[#333333] border border-[#FF8C00]/40 text-[#FFC107] hover:text-[#FFFFFF] rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+              title="Test real voice output"
+            >
+              <Play className="w-3 h-3 text-[#FF8C00]" />
+              <span>Preview Real Voice</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Connected Room Controls */}
       {inRoom && (
         <div className="bg-[#121212] border border-[#333333] rounded-xl p-4 flex flex-col gap-4">
@@ -570,7 +789,20 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
               <p className="text-[#FFFFFF] italic">"{activeTurn.user_transcript}"</p>
             </div>
             <div className="p-3 bg-[#121212] border border-[#333333] rounded-lg">
-              <span className="text-[#9AA0A6] block font-mono text-[11px] mb-1">Agent Voice Output (TTS):</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[#9AA0A6] block font-mono text-[11px]">Agent Voice Output (TTS):</span>
+                {!activeTurn.circuit_breaker_tripped && (
+                  <button
+                    type="button"
+                    onClick={() => speakText(activeTurn.final_speech_text, false)}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#FFC107] hover:text-[#FFFFFF] bg-[#242424] hover:bg-[#333333] px-2 py-0.5 rounded-md border border-[#333333] hover:border-[#FF8C00]/40 transition-all cursor-pointer shadow-sm"
+                    title="Listen to agent output"
+                  >
+                    <Play className="w-3 h-3 text-[#FF8C00]" />
+                    <span>{isSpeaking ? 'Speaking...' : 'Play Voice'}</span>
+                  </button>
+                )}
+              </div>
               <p
                 className={`font-medium ${
                   activeTurn.circuit_breaker_tripped ? 'text-rose-300' : 'text-[#FFC107]'
