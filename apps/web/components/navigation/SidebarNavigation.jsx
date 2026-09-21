@@ -59,6 +59,14 @@ export const NAV_ITEMS = [
     badge: '8 Vectors',
     badgeColor: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
   },
+  {
+    id: 'settings',
+    label: 'Settings',
+    sublabel: 'Stream & Gateway Config',
+    icon: Settings,
+    badge: 'CONFIG',
+    badgeColor: 'bg-amber-500/15 text-[#FFC107] border-amber-500/30',
+  },
 ];
 
 export default function SidebarNavigation({
@@ -68,12 +76,7 @@ export default function SidebarNavigation({
   onClose,
   isCollapsed,
   onToggleCollapse,
-  agentMode = 'voice',
-  setAgentMode,
-  selectedDomain = 'general',
-  setSelectedDomain,
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(true);
   return (
     <>
       {/* Mobile Drawer Overlay Backdrop */}
@@ -137,204 +140,67 @@ export default function SidebarNavigation({
           </div>
         )}
 
-        {/* Scrollable Navigation & Settings Area */}
-        <div className="flex-1 overflow-y-auto no-scrollbar py-2 space-y-3">
-          {/* Navigation Items List */}
-          <nav aria-label="Sidebar Navigation" className="px-3 space-y-1.5">
-            {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
+        {/* Scrollable Navigation Area */}
+        <nav aria-label="Sidebar Navigation" className="flex-1 px-3 py-2 space-y-1.5 overflow-y-auto no-scrollbar">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
 
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onSelectTab(item.id);
-                    if (onClose) onClose();
-                  }}
-                  title={item.label}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all group cursor-pointer ${
-                    isActive
-                      ? item.id === 'attack'
-                        ? 'bg-rose-600 text-[#FFFFFF] shadow-lg shadow-rose-950/40 font-bold'
-                        : 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/25 font-bold'
-                      : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-                  }`}
-                >
-                  <div
-                    className={`p-1.5 rounded-lg shrink-0 transition-colors ${
-                      isActive
-                        ? item.id === 'attack'
-                          ? 'bg-rose-700/60 text-white'
-                          : 'bg-[#121212]/15 text-[#121212]'
-                        : 'bg-[#121212] border border-[#333333] text-[#9AA0A6] group-hover:text-[#FFFFFF] group-hover:border-[#FF8C00]/40'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-
-                  {(!isCollapsed || isOpen) && (
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs truncate block">{item.label}</span>
-                        <span
-                          className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${
-                            isActive
-                              ? 'bg-black/20 text-current border-transparent'
-                              : item.badgeColor
-                          }`}
-                        >
-                          {item.badge}
-                        </span>
-                      </div>
-                      <span
-                        className={`text-[10px] block truncate ${
-                          isActive ? 'opacity-85' : 'text-[#9AA0A6]/70'
-                        }`}
-                      >
-                        {item.sublabel}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Settings Section */}
-          <div className="pt-2 border-t border-[#333333] px-3">
-            {/* Setting Button */}
-            <button
-              onClick={() => {
-                if (isCollapsed && onToggleCollapse) {
-                  onToggleCollapse();
-                  setSettingsOpen(true);
-                } else {
-                  setSettingsOpen(!settingsOpen);
-                }
-              }}
-              title="Settings: Surface Stream & Domain Configuration"
-              aria-expanded={settingsOpen}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all group cursor-pointer ${
-                settingsOpen
-                  ? 'bg-[#242424] text-[#FFFFFF] border border-[#FF8C00]/30 shadow-md shadow-[#FF8C00]/5'
-                  : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-              }`}
-            >
-              <div
-                className={`p-1.5 rounded-lg shrink-0 transition-colors ${
-                  settingsOpen
-                    ? 'bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/40'
-                    : 'bg-[#121212] border border-[#333333] text-[#9AA0A6] group-hover:text-[#FFFFFF] group-hover:border-[#FF8C00]/40'
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onSelectTab(item.id);
+                  if (onClose) onClose();
+                }}
+                title={item.label}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all group cursor-pointer ${
+                  isActive
+                    ? item.id === 'attack'
+                      ? 'bg-rose-600 text-[#FFFFFF] shadow-lg shadow-rose-950/40 font-bold'
+                      : 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/25 font-bold'
+                    : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
                 }`}
               >
-                <Settings className="w-4 h-4" />
-              </div>
-
-              {(!isCollapsed || isOpen) && (
-                <div className="flex-1 min-w-0 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <span className="text-xs font-semibold block text-[#FFFFFF]">Settings</span>
-                    <span className="text-[10px] text-[#9AA0A6] block truncate">Stream &amp; Domain Config</span>
-                  </div>
-                  {settingsOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-[#9AA0A6] shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-[#9AA0A6] shrink-0" />
-                  )}
-                </div>
-              )}
-            </button>
-
-            {/* Sub-items under Setting: Voice Stream, Text Query, Domain, and Moss Cache */}
-            {settingsOpen && (!isCollapsed || isOpen) && (
-              <div className="mt-2.5 p-3 bg-[#181818] border border-[#333333] rounded-xl space-y-3 shadow-inner">
-                {/* Surface Mode: LiveKit Voice Stream vs Text Query */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-[#9AA0A6] block">
-                    Surface Mode
-                  </span>
-                  <div className="space-y-1.5">
-                    <button
-                      onClick={() => {
-                        if (setAgentMode) setAgentMode('voice');
-                        if (onSelectTab) onSelectTab('agent');
-                        if (onClose) onClose();
-                      }}
-                      className={`w-full px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 border transition-all text-left cursor-pointer ${
-                        agentMode === 'voice'
-                          ? 'bg-[#FF8C00]/15 border-[#FF8C00]/60 text-[#FFC107] shadow-sm'
-                          : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5 text-[#FF8C00] shrink-0" />
-                      <span className="text-[11px] font-medium leading-tight">LiveKit Voice Stream (WebRTC)</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (setAgentMode) setAgentMode('text');
-                        if (onSelectTab) onSelectTab('agent');
-                        if (onClose) onClose();
-                      }}
-                      className={`w-full px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 border transition-all text-left cursor-pointer ${
-                        agentMode === 'text'
-                          ? 'bg-[#FF8C00]/15 border-[#FF8C00]/60 text-[#FFC107] shadow-sm'
-                          : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#242424]'
-                      }`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span className="text-[11px] font-medium leading-tight">Text Query &amp; Citation Inspection</span>
-                    </button>
-                  </div>
+                <div
+                  className={`p-1.5 rounded-lg shrink-0 transition-colors ${
+                    isActive
+                      ? item.id === 'attack'
+                        ? 'bg-rose-700/60 text-white'
+                        : 'bg-[#121212]/15 text-[#121212]'
+                      : 'bg-[#121212] border border-[#333333] text-[#9AA0A6] group-hover:text-[#FFFFFF] group-hover:border-[#FF8C00]/40'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
                 </div>
 
-                {/* Domain Selector */}
-                <div className="space-y-1.5 border-t border-[#333333]/70 pt-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-[#9AA0A6]">
-                      Domain:
-                    </span>
-                    <span className="text-[9px] font-mono text-[#FFC107] px-1 py-0.5 bg-[#FF8C00]/10 rounded border border-[#FF8C00]/20">
-                      RAG Context
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={selectedDomain}
-                      onChange={(e) => setSelectedDomain && setSelectedDomain(e.target.value)}
-                      className="w-full bg-[#1E1E1E] text-[#FFC107] font-semibold text-xs border border-[#333333] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#FF8C00] cursor-pointer appearance-none pr-7"
-                    >
-                      <option value="general" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                        General (SaaS Policies)
-                      </option>
-                      <option value="security" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                        Security (Zero-Trust)
-                      </option>
-                      <option value="finance" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                        Finance (PCI-DSS)
-                      </option>
-                      <option value="healthcare" className="bg-[#1E1E1E] text-[#FFFFFF]">
-                        Healthcare (HIPAA)
-                      </option>
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-[#9AA0A6] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Moss Cache Latency Telemetry */}
-                <div className="border-t border-[#333333]/70 pt-2.5">
-                  <div className="flex items-center justify-between p-2 bg-[#121212] rounded-lg border border-[#333333] text-[11px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#FF8C00] animate-pulse" />
-                      <span className="text-[#9AA0A6]">Moss Cache:</span>
+                {(!isCollapsed || isOpen) && (
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs truncate block">{item.label}</span>
+                      <span
+                        className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+                          isActive
+                            ? 'bg-black/20 text-current border-transparent'
+                            : item.badgeColor
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
                     </div>
-                    <span className="text-[#FFC107] font-bold">&lt;15ms</span>
+                    <span
+                      className={`text-[10px] block truncate ${
+                        isActive ? 'opacity-85' : 'text-[#9AA0A6]/70'
+                      }`}
+                    >
+                      {item.sublabel}
+                    </span>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Sidebar Footer System Health Widget */}
         {(!isCollapsed || isOpen) ? (

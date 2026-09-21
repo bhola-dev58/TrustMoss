@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Zap,
   Menu,
+  Settings,
 } from 'lucide-react';
 import TrustBadge from '../components/hud/TrustBadge';
 import LatencyWaterfall from '../components/hud/LatencyWaterfall';
@@ -31,6 +32,7 @@ import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard
 import AttackSimulator from '../components/attack/AttackSimulator';
 import HeaderUserDropdown from '../components/header/HeaderUserDropdown';
 import SidebarNavigation from '../components/navigation/SidebarNavigation';
+import SettingsPanel from '../components/settings/SettingsPanel';
 import LoginGate from '../components/auth/LoginGate';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
@@ -240,10 +242,6 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         onClose={() => setSidebarOpen(false)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        agentMode={agentMode}
-        setAgentMode={setAgentMode}
-        selectedDomain={selectedDomain}
-        setSelectedDomain={setSelectedDomain}
       />
 
       {/* Main Workspace Area */}
@@ -272,6 +270,7 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                 {activeTab === 'catalog' && <BookOpen className="w-4 h-4 text-[#FF8C00]" />}
                 {activeTab === 'scalability' && <Gauge className="w-4 h-4 text-[#FF8C00]" />}
                 {activeTab === 'attack' && <Zap className="w-4 h-4 text-rose-400" />}
+                {activeTab === 'settings' && <Settings className="w-4 h-4 text-[#FF8C00]" />}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -281,6 +280,7 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                     {activeTab === 'catalog' && 'CRISPE Prompt Catalog'}
                     {activeTab === 'scalability' && 'k6 Scalability Benchmarks'}
                     {activeTab === 'attack' && 'Adversarial Attack Lab'}
+                    {activeTab === 'settings' && 'Gateway & Stream Settings'}
                   </h1>
                   <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 uppercase shrink-0">
                     Active
@@ -467,6 +467,17 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
 
         {/* TAB 5: ADVERSARIAL ATTACK SIMULATOR & STRESS MATRIX */}
         {activeTab === 'attack' && <AttackSimulator />}
+
+        {/* TAB 6: GATEWAY & STREAM SETTINGS */}
+        {activeTab === 'settings' && (
+          <SettingsPanel
+            agentMode={agentMode}
+            setAgentMode={setAgentMode}
+            selectedDomain={selectedDomain}
+            setSelectedDomain={setSelectedDomain}
+            onLaunchHud={() => setActiveTab('agent')}
+          />
+        )}
       </main>
       </div>
 
