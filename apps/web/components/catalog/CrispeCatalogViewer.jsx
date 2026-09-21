@@ -122,7 +122,6 @@ export default function CrispeCatalogViewer() {
   };
 
   return (
-  return (
     <div data-testid="crispe-catalog-viewer" className="space-y-6 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#333333] pb-4">
