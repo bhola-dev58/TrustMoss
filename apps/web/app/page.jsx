@@ -28,8 +28,7 @@ import DatabaseStatsPanel from '../components/database/DatabaseStatsPanel';
 import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer';
 import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard';
 import AttackSimulator from '../components/attack/AttackSimulator';
-import ComplianceExportButton from '../components/audit/ComplianceExportButton';
-import AuthButton from '../components/auth/AuthButton';
+import HeaderUserDropdown from '../components/header/HeaderUserDropdown';
 import LoginGate from '../components/auth/LoginGate';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
@@ -251,25 +250,12 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
             </div>
           </div>
 
-          {/* Actions Cluster on Mobile (< lg) */}
-          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
-            <ComplianceExportButton />
-
-            <button
-              onClick={() => setHitlModalOpen(true)}
-              className="px-2.5 py-1.5 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-xs font-medium rounded-xl flex items-center gap-1.5 text-[#9AA0A6] hover:text-[#FFFFFF] transition-all cursor-pointer shadow-sm"
-              title="Open Human-In-The-Loop Review Queue"
-            >
-              <Users className="w-3.5 h-3.5 text-[#FFC107] shrink-0" />
-              <span className="hidden xs:inline font-semibold">HITL</span>
-              {flaggedItems.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold font-mono">
-                  {flaggedItems.length}
-                </span>
-              )}
-            </button>
-
-            <AuthButton />
+          {/* Actions Menu Dropdown (Mobile) */}
+          <div className="flex lg:hidden items-center shrink-0">
+            <HeaderUserDropdown
+              onOpenHitl={() => setHitlModalOpen(true)}
+              flaggedCount={flaggedItems.length}
+            />
           </div>
         </div>
 
@@ -336,24 +322,12 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
           </button>
         </nav>
 
-        {/* Header Actions - Desktop (lg+) */}
-        <div className="hidden lg:flex items-center gap-2 shrink-0">
-          <ComplianceExportButton />
-
-          <button
-            onClick={() => setHitlModalOpen(true)}
-            className="px-3 py-1.5 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-xs font-medium rounded-xl flex items-center gap-2 text-[#9AA0A6] hover:text-[#FFFFFF] transition-all cursor-pointer shadow-sm"
-          >
-            <Users className="w-3.5 h-3.5 text-[#FFC107]" />
-            <span>HITL Queue</span>
-            {flaggedItems.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-bold font-mono">
-                {flaggedItems.length}
-              </span>
-            )}
-          </button>
-
-          <AuthButton />
+        {/* Actions Menu Dropdown (Desktop) */}
+        <div className="hidden lg:flex items-center shrink-0">
+          <HeaderUserDropdown
+            onOpenHitl={() => setHitlModalOpen(true)}
+            flaggedCount={flaggedItems.length}
+          />
         </div>
       </header>
 
