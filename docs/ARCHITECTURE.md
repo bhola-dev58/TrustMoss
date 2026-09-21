@@ -276,4 +276,61 @@ flowchart TD
 
 ---
 
+## 8. Frontend Design System & Neural Voice Audio Architecture (Phase 10)
+
+```mermaid
+flowchart LR
+    subgraph ClientAudio["Client Audio Subsystem"]
+        Input["Microphone (Web Speech STT / Audio Ingress)"]
+        TTS["Neural Speech Synthesis Engine (Web Speech TTS)"]
+        PersonaSelector["Voice Persona Registry<br/>(Indian English / Aura / Echo / Studio)"]
+    end
+
+    subgraph HeaderLayout["Mobile-First Two-Tier Header"]
+        Tier1["Top Utility Row<br/>- TrustMoss Brand Emblem<br/>- Compliance Audit Export Button<br/>- HITL Review Queue Trigger (Badge)<br/>- Firebase Google / Demo Auth"]
+        Tier2["Touch Navigation Rail (Scrollable)<br/>- Agent HUD<br/>- Postgres & Redis<br/>- CRISPE Catalog<br/>- k6 Benchmarks<br/>- Attack Lab"]
+    end
+
+    subgraph GatewayCore["Trust & Voice Orchestration"]
+        LiveKitGW["LiveKit WebRTC Voice Gateway"]
+        CircuitBreaker["Audio Circuit Breaker (Suppression Gate)"]
+        WaterFall["8-Hop Microsecond Waterfall Telemetry"]
+    end
+
+    Input --> LiveKitGW
+    LiveKitGW --> CircuitBreaker
+    CircuitBreaker -->|Verified Speech Payload| TTS
+    CircuitBreaker -->|Tripped on Injection/Hallucination| Suppress["Audio Suppressed"]
+    PersonaSelector --> TTS
+```
+
+### 8.1 Developer Ember / Dark Obsidian Design System
+The user interface adheres to the **Developer Ember** aesthetic engineered for prolonged operations room monitoring:
+- **Canvas Base (`--bg-main`):** `#121212` (Obsidian Black) — reduces visual fatigue in low-light developer environments.
+- **Surfaces & Cards (`--bg-surface`):** `#1E1E1E` & `#242424` (Charcoal Surface) — tactile interactive containers.
+- **Typography:** `#FFFFFF` (Primary Headers & High-Contrast Data) and `#9AA0A6` (Secondary Subtitles & Latency Traces).
+- **Brand & Action Accent (`--accent-gradient`):** Sunset Amber Gradient (`#FF8C00` $\to$ `#FFC107`) with glowing specular borders.
+- **Dividers (`--border-subtle`):** `#333333` — low-contrast structural dividers.
+
+### 8.2 Two-Tier Mobile-First Header Architecture
+- **Tier 1 (Utility & Brand Bar):** Displays brand shield with glowing amber gradient, status badge, compact Compliance Audit export trigger, real-time Human-in-the-Loop review counter badge, and Firebase authenticated user avatar with one-click sign-out.
+- **Tier 2 (Swipeable Touch Rail):** Full-width horizontally scrollable navigation rail (`overflow-x-auto no-scrollbar`) offering $\ge 36\text{px}$ touch targets for all five core views without layout compression on mobile viewports.
+
+### 8.3 Multi-Persona Neural Speech Synthesis Engine
+To eliminate synthetic, mechanical robotic voices, `LiveKitVoiceRoom` implements an intelligent client-side voice selection and audio calibration engine:
+1. **Dynamic Neural Voice Resolution (`resolveVoice`):**
+   - Discovers installed high-fidelity browser neural voices (`Google US/UK/India`, `Microsoft Natural Online`, `Apple Enhanced Siri/Samantha/Rishi`) via `window.speechSynthesis.getVoices()`.
+   - Filters and binds to real human voices based on the active persona.
+2. **Native Personas:**
+   - **Priya / Aarav (Indian English - `en-IN`, Default):** Syllable-timed cadence with warm conversational resonance (`rate: 0.98, pitch: 1.02`), binding to `en-IN` / `hi-IN` voices (Google Indian English, Microsoft Neerja/Ravi, Apple Rishi/Veena).
+   - **Aura (Natural US Female):** Expressive feminine assistant cadence (`rate: 0.98, pitch: 1.04`).
+   - **Echo (Natural US Male):** Deep, steady masculine cadence (`rate: 0.96, pitch: 0.94`).
+   - **Studio (British English):** Formal UK English delivery (`en-GB`).
+3. **Audio Engine Unlocking & Browser Resilience:**
+   - Automatically unlocks browser audio context on user interaction to bypass mobile Safari and Chromium autoplay restrictions.
+   - Cleans input text of markdown tokens, brackets, and URLs before synthesis.
+   - Integrates interactive "Preview Real Voice" and per-turn "Play Voice" controls for immediate verification.
+
+---
+
 *TrustMoss — Built for the YC Fall 2026 x Moss Zero Latency Builder Sprint.*
