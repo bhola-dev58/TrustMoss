@@ -89,6 +89,38 @@ export default function SettingsPanel({
         </div>
       </div>
 
+      {/* Active Pipeline Status Notice */}
+      <div className="p-3.5 sm:p-4 bg-[#141414] border border-[#FF8C00]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 shrink-0">
+            <Sparkles className="w-4 h-4 text-[#FF8C00]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#FFFFFF]">
+                Target Agent HUD Acting Mode:
+              </span>
+              <span className="text-xs font-mono font-bold text-[#FFC107]">
+                {agentMode === 'voice' ? 'LiveKit Voice Stream (WebRTC)' : 'Text Query & Citation Inspection'}
+              </span>
+            </div>
+            <p className="text-[10px] text-[#9AA0A6] mt-0.5">
+              Configured for <strong className="text-[#FFFFFF]">{DOMAIN_OPTIONS.find((d) => d.id === selectedDomain)?.name || selectedDomain}</strong> with <strong className="text-[#FFC107]">Moss Cache &lt;15ms</strong>. Changes apply immediately to the Agent HUD interface.
+            </p>
+          </div>
+        </div>
+
+        {onLaunchHud && (
+          <button
+            onClick={onLaunchHud}
+            className="px-3.5 py-1.5 rounded-xl bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/50 text-[#FFC107] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <span>Open Acting Interface</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
       {/* Main Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Surface Stream Mode Setting */}

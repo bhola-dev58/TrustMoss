@@ -324,7 +324,89 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
         {/* TAB 1: LIVE AGENT HUD */}
         {activeTab === 'agent' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
+            {/* Active Pipeline & Surface Mode Bar */}
+            <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-3 sm:p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 shrink-0">
+                  {agentMode === 'voice' ? (
+                    <Radio className="w-4 h-4 text-[#FF8C00]" />
+                  ) : (
+                    <MessageSquare className="w-4 h-4 text-[#FF8C00]" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-bold text-[#FFFFFF] truncate">
+                      {agentMode === 'voice'
+                        ? 'LiveKit Voice Stream (WebRTC)'
+                        : 'Text Query & Citation Inspection'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#9AA0A6] truncate">
+                    {agentMode === 'voice'
+                      ? 'Duplex WebRTC audio • Indian English (en-IN) speaker tuning • Sub-350ms pipeline'
+                      : 'SSE text stream with 5-stage zero-trust guardrails • Real-time citation inspection'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Badges & Actions */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Domain Pill */}
+                <div className="px-2.5 py-1 rounded-xl bg-[#121212] border border-[#333333] text-[10px] font-mono flex items-center gap-1.5">
+                  <span className="text-[#9AA0A6]">Domain:</span>
+                  <span className="text-[#FFC107] font-semibold">
+                    {selectedDomain === 'general' && 'General (SaaS)'}
+                    {selectedDomain === 'security' && 'Security (Zero-Trust)'}
+                    {selectedDomain === 'finance' && 'Finance (PCI-DSS)'}
+                    {selectedDomain === 'healthcare' && 'Healthcare (HIPAA)'}
+                  </span>
+                </div>
+
+                {/* Moss Cache Pill */}
+                <div className="px-2.5 py-1 rounded-xl bg-[#121212] border border-[#333333] text-[10px] font-mono flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF8C00] animate-pulse" />
+                  <span className="text-[#9AA0A6]">Cache:</span>
+                  <span className="text-[#FFC107] font-semibold">&lt;15ms</span>
+                </div>
+
+                {/* Inline Mode Switcher Button */}
+                <button
+                  onClick={() => setAgentMode(agentMode === 'voice' ? 'text' : 'voice')}
+                  className="px-2.5 py-1 rounded-xl bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#FFC107] text-[10px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                  title={agentMode === 'voice' ? 'Switch to Text Query' : 'Switch to Voice Stream'}
+                >
+                  {agentMode === 'voice' ? (
+                    <>
+                      <MessageSquare className="w-3 h-3 text-[#FF8C00]" />
+                      <span>Switch to Text</span>
+                    </>
+                  ) : (
+                    <>
+                      <Radio className="w-3 h-3 text-[#FF8C00]" />
+                      <span>Switch to Voice</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Settings Shortcut Button */}
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="px-2.5 py-1 rounded-xl bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] text-[10px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                  title="Configure in Gateway Settings"
+                >
+                  <Settings className="w-3 h-3 text-[#FF8C00]" />
+                  <span className="hidden sm:inline">Settings</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Acting Interface based on configured mode */}
             {agentMode === 'voice' ? (
               <LiveKitVoiceRoom onTurnLogged={handleVoiceTurnLogged} />
             ) : (
