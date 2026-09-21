@@ -136,7 +136,7 @@ export default function LoginGate({ onEnterGuestMode }) {
               />
             </svg>
           )}
-          <span>{loading ? 'Authenticating...' : 'Sign in with Google Workspace'}</span>
+          <span>{loading ? 'Authenticating...' : 'Sign in with Google'}</span>
         </button>
 
         {/* Read-Only Demo Option */}
