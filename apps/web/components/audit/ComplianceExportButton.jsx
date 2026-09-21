@@ -48,7 +48,8 @@ export default function ComplianceExportButton({ className = '' }) {
       ) : (
         <Download className="w-3.5 h-3.5 text-[#FF8C00]" />
       )}
-      <span>{downloaded ? 'Audit Exported!' : 'Export Compliance Audit'}</span>
+      <span className="hidden sm:inline">{downloaded ? 'Audit Exported!' : 'Export Compliance Audit'}</span>
+      <span className="sm:hidden">{downloaded ? 'Exported' : 'Audit'}</span>
     </button>
   );
 }
