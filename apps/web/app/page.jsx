@@ -576,10 +576,10 @@ function ConsoleGate() {
     return (
       <div
         data-testid="auth-verifying-splash"
-        className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col items-center justify-center p-6"
+        className="min-h-screen bg-[#121212] text-[#FFFFFF] flex flex-col items-center justify-center p-6 font-sans"
       >
-        <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mb-3" />
-        <span className="text-xs text-slate-400 font-mono">Verifying enterprise operator credentials...</span>
+        <div className="w-9 h-9 border-2 border-[#FF8C00]/20 border-t-[#FF8C00] rounded-full animate-spin mb-3 shadow-lg shadow-[#FF8C00]/20" />
+        <span className="text-xs text-[#9AA0A6] font-mono">Verifying enterprise operator credentials...</span>
       </div>
     );
   }

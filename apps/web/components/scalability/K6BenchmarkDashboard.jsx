@@ -188,21 +188,21 @@ export default function K6BenchmarkDashboard() {
   };
 
   return (
-    <div data-testid="k6-benchmark-dashboard" className="space-y-6">
+    <div data-testid="k6-benchmark-dashboard" className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Gauge className="w-5 h-5 text-emerald-400" />
-            k6 OSS Scalability Testing & Concurrency Benchmarks
+          <h2 className="text-base font-bold text-[#FFFFFF] flex items-center gap-2">
+            <Gauge className="w-5 h-5 text-[#FF8C00]" />
+            k6 OSS Scalability Testing &amp; Concurrency Benchmarks
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[#9AA0A6]">
             Real-time load generation, sub-45ms P95 SLA validation, and breaking-point detection
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-300 font-semibold rounded-lg flex items-center gap-1.5">
-            <Cpu className="w-3.5 h-3.5" />
+          <span className="px-3 py-1 bg-[#FF8C00]/10 border border-[#FF8C00]/30 text-[#FFC107] font-semibold rounded-xl flex items-center gap-1.5">
+            <Cpu className="w-3.5 h-3.5 text-[#FF8C00]" />
             Grafana k6 OSS Engine
           </span>
         </div>
@@ -211,31 +211,31 @@ export default function K6BenchmarkDashboard() {
       {/* Control & Live Monitoring Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Test Configuration Panel */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 space-y-4 shadow-xl">
+          <span className="text-xs font-semibold text-[#FFFFFF] uppercase tracking-wider block">
             Test Configuration
           </span>
 
           <div className="space-y-3 text-xs">
             <div>
-              <label className="text-slate-400 block mb-1">Target Endpoint</label>
+              <label className="text-[#9AA0A6] block mb-1">Target Endpoint</label>
               <input
                 type="text"
                 value={targetUrl}
                 onChange={(e) => setTargetUrl(e.target.value)}
                 disabled={status === 'RUNNING'}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                className="w-full bg-[#121212] border border-[#333333] rounded-xl px-3 py-2 text-[#FFFFFF] font-mono text-xs focus:outline-none focus:border-[#FF8C00] transition-colors"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-slate-400 block mb-1">Virtual Users (VUs)</label>
+                <label className="text-[#9AA0A6] block mb-1">Virtual Users (VUs)</label>
                 <select
                   value={vus}
                   onChange={(e) => setVus(Number(e.target.value))}
                   disabled={status === 'RUNNING'}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#121212] border border-[#333333] rounded-xl px-2.5 py-2 text-[#FFFFFF] text-xs focus:outline-none focus:border-[#FF8C00] transition-colors cursor-pointer"
                 >
                   <option value={10}>10 VUs (Light)</option>
                   <option value={25}>25 VUs (Medium)</option>
@@ -246,12 +246,12 @@ export default function K6BenchmarkDashboard() {
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1">Duration</label>
+                <label className="text-[#9AA0A6] block mb-1">Duration</label>
                 <select
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   disabled={status === 'RUNNING'}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-[#121212] border border-[#333333] rounded-xl px-2.5 py-2 text-[#FFFFFF] text-xs focus:outline-none focus:border-[#FF8C00] transition-colors cursor-pointer"
                 >
                   <option value="15s">15 seconds</option>
                   <option value="30s">30 seconds</option>
@@ -262,7 +262,7 @@ export default function K6BenchmarkDashboard() {
             </div>
 
             <div>
-              <label className="text-slate-400 block mb-1">Test Profile</label>
+              <label className="text-[#9AA0A6] block mb-1">Test Profile</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'load', label: 'Load Test' },
@@ -274,10 +274,10 @@ export default function K6BenchmarkDashboard() {
                     key={t.id}
                     onClick={() => setTestType(t.id)}
                     disabled={status === 'RUNNING'}
-                    className={`py-1.5 px-2 rounded-lg border text-center font-medium transition-all ${
+                    className={`py-2 px-2.5 rounded-xl border text-center font-medium text-xs transition-all cursor-pointer ${
                       testType === t.id
-                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-semibold'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-300'
+                        ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] font-bold border-transparent shadow-md shadow-[#FF8C00]/20'
+                        : 'bg-[#121212] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:border-[#FF8C00]/40'
                     }`}
                   >
                     {t.label}
@@ -290,7 +290,7 @@ export default function K6BenchmarkDashboard() {
               {status !== 'RUNNING' ? (
                 <button
                   onClick={handleStartTest}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-950/40"
+                  className="w-full py-2.5 bg-gradient-to-r from-[#FF8C00] to-[#FFC107] hover:opacity-95 text-[#121212] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#FF8C00]/25 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   <span>Execute Benchmark Run</span>
@@ -298,7 +298,7 @@ export default function K6BenchmarkDashboard() {
               ) : (
                 <button
                   onClick={handleCancelTest}
-                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all"
+                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-rose-950/40"
                 >
                   <Square className="w-4 h-4 fill-current" />
                   <span>Cancel Benchmark</span>
@@ -309,19 +309,19 @@ export default function K6BenchmarkDashboard() {
         </div>
 
         {/* Live Gauges & SLA Validation */}
-        <div className="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              Live Telemetry & SLA Compliance
+        <div className="lg:col-span-2 bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#333333] pb-3">
+            <span className="text-xs font-semibold text-[#FFFFFF] uppercase tracking-wider flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#FF8C00]" />
+              Live Telemetry &amp; SLA Compliance
             </span>
             <span
-              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase ${
                 status === 'RUNNING'
                   ? 'bg-amber-500/20 text-amber-300 animate-pulse border border-amber-500/40'
                   : status === 'COMPLETED'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  ? 'bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30'
+                  : 'bg-[#242424] text-[#9AA0A6] border border-[#333333]'
               }`}
             >
               Status: {status}
@@ -330,51 +330,51 @@ export default function K6BenchmarkDashboard() {
 
           {/* Metric Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3">
-              <span className="text-[11px] text-slate-400 block font-mono">P95 Latency</span>
-              <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+            <div className="bg-[#121212] border border-[#333333] rounded-xl p-3.5 hover:border-[#FF8C00]/30 transition-colors">
+              <span className="text-[11px] text-[#9AA0A6] block font-mono">P95 Latency</span>
+              <div className="text-xl font-bold font-mono text-[#FFC107] mt-1">
                 {metrics ? `${metrics.p95_ms.toFixed(1)} ms` : '--'}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">Target: &lt; 45ms</span>
+              <span className="text-[10px] text-[#9AA0A6]/70 font-mono">Target: &lt; 45ms</span>
             </div>
 
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3">
-              <span className="text-[11px] text-slate-400 block font-mono">P99 Latency</span>
-              <div className="text-xl font-bold font-mono text-sky-400 mt-1">
+            <div className="bg-[#121212] border border-[#333333] rounded-xl p-3.5 hover:border-[#FF8C00]/30 transition-colors">
+              <span className="text-[11px] text-[#9AA0A6] block font-mono">P99 Latency</span>
+              <div className="text-xl font-bold font-mono text-[#FF8C00] mt-1">
                 {metrics ? `${metrics.p99_ms.toFixed(1)} ms` : '--'}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">Target: &lt; 75ms</span>
+              <span className="text-[10px] text-[#9AA0A6]/70 font-mono">Target: &lt; 75ms</span>
             </div>
 
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3">
-              <span className="text-[11px] text-slate-400 block font-mono">Throughput (RPS)</span>
-              <div className="text-xl font-bold font-mono text-purple-400 mt-1">
+            <div className="bg-[#121212] border border-[#333333] rounded-xl p-3.5 hover:border-[#FF8C00]/30 transition-colors">
+              <span className="text-[11px] text-[#9AA0A6] block font-mono">Throughput (RPS)</span>
+              <div className="text-xl font-bold font-mono text-[#FFC107] mt-1">
                 {metrics ? `${metrics.rps} req/s` : '--'}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">Concurrent Traffic</span>
+              <span className="text-[10px] text-[#9AA0A6]/70 font-mono">Concurrent Traffic</span>
             </div>
 
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3">
-              <span className="text-[11px] text-slate-400 block font-mono">Error Rate</span>
+            <div className="bg-[#121212] border border-[#333333] rounded-xl p-3.5 hover:border-[#FF8C00]/30 transition-colors">
+              <span className="text-[11px] text-[#9AA0A6] block font-mono">Error Rate</span>
               <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
                 {metrics ? `${metrics.error_rate.toFixed(2)}%` : '0.00%'}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">Circuit Breaker Safe</span>
+              <span className="text-[10px] text-[#9AA0A6]/70 font-mono">Circuit Breaker Safe</span>
             </div>
           </div>
 
           {/* Breaking Point / SLA Status Banner */}
-          <div className="p-4 bg-slate-950/90 border border-slate-800 rounded-xl flex items-center justify-between text-xs font-mono">
+          <div className="p-4 bg-[#121212] border border-[#333333] rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <CheckCircle2 className="w-5 h-5 text-[#FFC107] flex-shrink-0" />
               <div>
-                <span className="text-white font-bold block">Observed Performance Threshold:</span>
-                <span className="text-emerald-400">
+                <span className="text-[#FFFFFF] font-bold block">Observed Performance Threshold:</span>
+                <span className="text-[#FFC107]">
                   {metrics?.breaking_point || 'Verified Zero Degradation across 100 concurrent VUs'}
                 </span>
               </div>
             </div>
-            <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded-lg text-[11px] font-semibold">
+            <span className="px-3 py-1 bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 rounded-lg text-[11px] font-semibold whitespace-nowrap">
               PASS: Sub-45ms SLA
             </span>
           </div>
@@ -382,44 +382,44 @@ export default function K6BenchmarkDashboard() {
       </div>
 
       {/* Benchmark History Table */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
+      <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            Benchmark History & SLA Audit Records
+          <h3 className="text-sm font-semibold text-[#FFFFFF] flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-[#FF8C00]" />
+            Benchmark History &amp; SLA Audit Records
           </h3>
-          <span className="text-xs font-mono text-slate-400">{testHistory.length} Test Runs Logged</span>
+          <span className="text-xs font-mono text-[#9AA0A6]">{testHistory.length} Test Runs Logged</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 text-[11px]">
-                <th className="pb-2 font-semibold">Test Name</th>
-                <th className="pb-2 font-semibold">Type</th>
-                <th className="pb-2 font-semibold">VUs</th>
-                <th className="pb-2 font-semibold">Duration</th>
-                <th className="pb-2 font-semibold">P95 Latency</th>
-                <th className="pb-2 font-semibold">Throughput</th>
-                <th className="pb-2 font-semibold">SLA Gate</th>
-                <th className="pb-2 font-semibold">Executed At</th>
+              <tr className="border-b border-[#333333] text-[#9AA0A6] text-[11px]">
+                <th className="pb-2.5 font-semibold">Test Name</th>
+                <th className="pb-2.5 font-semibold">Type</th>
+                <th className="pb-2.5 font-semibold">VUs</th>
+                <th className="pb-2.5 font-semibold">Duration</th>
+                <th className="pb-2.5 font-semibold">P95 Latency</th>
+                <th className="pb-2.5 font-semibold">Throughput</th>
+                <th className="pb-2.5 font-semibold">SLA Gate</th>
+                <th className="pb-2.5 font-semibold">Executed At</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-[#333333]/70">
               {testHistory.map((run, i) => (
-                <tr key={i} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-2.5 text-slate-200 font-sans font-medium">{run.name}</td>
-                  <td className="py-2.5 text-slate-400 uppercase text-[10px]">{run.test_type}</td>
-                  <td className="py-2.5 text-slate-300">{run.vus} VUs</td>
-                  <td className="py-2.5 text-slate-400">{run.duration}</td>
-                  <td className="py-2.5 text-emerald-400 font-bold">{run.p95_ms} ms</td>
-                  <td className="py-2.5 text-purple-300">{run.rps} req/s</td>
-                  <td className="py-2.5">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <tr key={i} className="hover:bg-[#242424] transition-colors">
+                  <td className="py-3 text-[#FFFFFF] font-sans font-medium">{run.name}</td>
+                  <td className="py-3 text-[#9AA0A6] uppercase text-[10px]">{run.test_type}</td>
+                  <td className="py-3 text-[#FFFFFF]">{run.vus} VUs</td>
+                  <td className="py-3 text-[#9AA0A6]">{run.duration}</td>
+                  <td className="py-3 text-[#FFC107] font-bold">{run.p95_ms} ms</td>
+                  <td className="py-3 text-[#FF8C00]">{run.rps} req/s</td>
+                  <td className="py-3">
+                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30">
                       PASS (&lt;45ms)
                     </span>
                   </td>
-                  <td className="py-2.5 text-slate-500 text-[11px]">{run.created_at}</td>
+                  <td className="py-3 text-[#9AA0A6] text-[11px]">{run.created_at}</td>
                 </tr>
               ))}
             </tbody>

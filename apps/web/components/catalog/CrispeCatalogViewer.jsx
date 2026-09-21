@@ -122,20 +122,21 @@ export default function CrispeCatalogViewer() {
   };
 
   return (
-    <div data-testid="crispe-catalog-viewer" className="space-y-6">
+  return (
+    <div data-testid="crispe-catalog-viewer" className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#333333] pb-4">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-emerald-400" />
-            CRISPE Prompt Catalog & Governance Registry
+          <h2 className="text-base font-bold text-[#FFFFFF] flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-[#FF8C00]" />
+            CRISPE Prompt Catalog &amp; Governance Registry
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[#9AA0A6]">
             Version-controlled prompt architecture across all 7 LLM surfaces with zero drift
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-xs font-semibold rounded-lg">
+          <span className="px-2.5 py-1 bg-[#FF8C00]/15 border border-[#FF8C00]/30 text-[#FFC107] font-mono text-xs font-semibold rounded-xl">
             7/7 Templates Active
           </span>
         </div>
@@ -143,8 +144,8 @@ export default function CrispeCatalogViewer() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Template List */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block px-2 mb-2">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-4 space-y-2 shadow-xl">
+          <span className="text-xs font-semibold text-[#9AA0A6] uppercase tracking-wider block px-2 mb-2">
             Registered Prompt Surfaces
           </span>
           {CATALOG_TEMPLATES.map((tpl) => {
@@ -153,89 +154,103 @@ export default function CrispeCatalogViewer() {
               <button
                 key={tpl.name}
                 onClick={() => setSelectedTemplate(tpl)}
-                className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between ${
+                className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                   isSelected
-                    ? 'bg-emerald-500/10 border-emerald-500/40 text-white shadow-lg shadow-emerald-950/30'
-                    : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:bg-slate-800/50'
+                    ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] border-transparent shadow-md shadow-[#FF8C00]/20 font-bold'
+                    : 'bg-[#242424] border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF]'
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-xs">{tpl.name}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                        isSelected
+                          ? 'bg-[#121212]/20 text-[#121212]'
+                          : 'bg-[#121212] text-[#9AA0A6] border border-[#333333]'
+                      }`}
+                    >
                       v{tpl.version}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5 line-clamp-1">{tpl.surface}</span>
+                  <span
+                    className={`text-[11px] block mt-0.5 line-clamp-1 ${
+                      isSelected ? 'text-[#121212]/85' : 'text-[#9AA0A6]'
+                    }`}
+                  >
+                    {tpl.surface}
+                  </span>
                 </div>
-                <ChevronRight className={`w-4 h-4 ${isSelected ? 'text-emerald-400' : 'text-slate-600'}`} />
+                <ChevronRight
+                  className={`w-4 h-4 ${isSelected ? 'text-[#121212]' : 'text-[#9AA0A6]'}`}
+                />
               </button>
             );
           })}
         </div>
 
         {/* Selected Template Details */}
-        <div className="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="lg:col-span-2 bg-[#1E1E1E] border border-[#333333] rounded-2xl p-6 space-y-5 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#333333] pb-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <Sparkles className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-base font-bold text-white font-mono">{selectedTemplate.name}</h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase">
+                <Sparkles className="w-5 h-5 text-[#FF8C00]" />
+                <h3 className="text-base font-bold text-[#FFFFFF] font-mono">{selectedTemplate.name}</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 uppercase">
                   {selectedTemplate.category}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">{selectedTemplate.surface}</p>
+              <p className="text-xs text-[#9AA0A6] mt-1">{selectedTemplate.surface}</p>
             </div>
             <button
               onClick={handleCopy}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg flex items-center gap-1.5 border border-slate-700 transition-colors"
+              className="px-3 py-1.5 bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] text-xs font-semibold rounded-xl flex items-center gap-1.5 border border-[#333333] hover:border-[#FF8C00]/40 transition-all cursor-pointer shadow-sm"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-[#FFC107]" /> : <Copy className="w-3.5 h-3.5 text-[#FF8C00]" />}
               <span>{copied ? 'Copied' : 'Copy JSON'}</span>
             </button>
           </div>
 
           {/* Model info */}
-          <div className="flex items-center gap-4 text-xs font-mono bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-slate-500">Inference Target:</span>
-            <span className="text-emerald-400 font-semibold">{selectedTemplate.model}</span>
+          <div className="flex items-center gap-4 text-xs font-mono bg-[#121212] p-3.5 rounded-xl border border-[#333333]">
+            <span className="text-[#9AA0A6]">Inference Target:</span>
+            <span className="text-[#FFC107] font-semibold">{selectedTemplate.model}</span>
           </div>
 
           {/* CRISPE Framework Breakdown */}
           <div className="space-y-3 text-xs">
-            <span className="font-semibold text-slate-300 uppercase tracking-wider text-[11px] block">
+            <span className="font-semibold text-[#FFFFFF] uppercase tracking-wider text-[11px] block">
               CRISPE Prompt Specification
             </span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-emerald-400">Capacity [C]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.capacity}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FFC107]">Capacity [C]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.capacity}</p>
               </div>
 
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-sky-400">Role [R]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.role}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FF8C00]">Role [R]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.role}</p>
               </div>
 
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-amber-400">Insight [I]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.insight}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FFC107]">Insight [I]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.insight}</p>
               </div>
 
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-purple-400">Statement [S]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.statement}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FF8C00]">Statement [S]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.statement}</p>
               </div>
 
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-rose-400">Personality [P]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.personality}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FFC107]">Personality [P]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.personality}</p>
               </div>
 
-              <div className="p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1">
-                <span className="text-[10px] font-bold font-mono uppercase text-cyan-400">Experiment [E]</span>
-                <p className="text-slate-200">{selectedTemplate.crispe.experiment}</p>
+              <div className="p-3.5 bg-[#121212] border border-[#333333] rounded-xl space-y-1 hover:border-[#FF8C00]/30 transition-colors">
+                <span className="text-[10px] font-bold font-mono uppercase text-[#FF8C00]">Experiment [E]</span>
+                <p className="text-[#FFFFFF] leading-relaxed">{selectedTemplate.crispe.experiment}</p>
               </div>
             </div>
           </div>

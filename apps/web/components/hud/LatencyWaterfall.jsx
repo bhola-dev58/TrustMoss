@@ -90,12 +90,12 @@ export default function LatencyWaterfall({ trace = [], latencyTrace, totalMs = 0
         })}
       </div>
 
-      <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-between border-t border-slate-800/60">
-        <span className="flex items-center gap-1 text-emerald-400/90 font-medium">
-          <CheckCircle2 className="w-3 h-3" />
+      <div className="pt-2 text-[11px] text-[#9AA0A6] flex items-center justify-between border-t border-[#333333]">
+        <span className="flex items-center gap-1 text-[#FFC107] font-medium">
+          <CheckCircle2 className="w-3.5 h-3.5 text-[#FF8C00]" />
           SLA Gate: Sub-45ms Ingress Maintained
         </span>
-        <span className="text-emerald-400 font-mono">Zero Retrieval Overhead</span>
+        <span className="text-[#FFC107] font-mono font-semibold">Zero Retrieval Overhead</span>
       </div>
     </div>
   );
