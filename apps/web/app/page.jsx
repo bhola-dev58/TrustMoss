@@ -378,6 +378,8 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                   <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
                   <span>Text Query & Citation Inspection</span>
                 </button>
+              </div>
+
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-[#131b2e] border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
                   <span className="text-slate-400 font-medium">Domain:</span>
