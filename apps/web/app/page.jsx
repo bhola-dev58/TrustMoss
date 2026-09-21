@@ -250,12 +250,11 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-xl cursor-pointer transition-all shadow-sm flex items-center gap-2 shrink-0"
+              className="p-2 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-xl cursor-pointer transition-all shadow-sm flex items-center justify-center shrink-0"
               title="Toggle Navigation Sidebar"
               aria-label="Toggle Navigation Sidebar"
             >
               <Menu className="w-4 h-4 text-[#FF8C00]" />
-              <span className="text-xs font-semibold hidden md:inline">Console Menu</span>
             </button>
 
             {/* Active View Label & Icon */}

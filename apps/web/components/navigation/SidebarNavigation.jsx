@@ -83,6 +83,20 @@ export default function SidebarNavigation({
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-20' : 'w-72 lg:w-64'}`}
       >
+        {/* Toggle Button Linked on the Right Border - Icon Only */}
+        <button
+          onClick={isOpen ? onClose : onToggleCollapse}
+          className="absolute top-5 -right-3.5 z-50 w-7 h-7 rounded-full bg-[#1E1E1E] border border-[#333333] hover:border-[#FF8C00] text-[#9AA0A6] hover:text-[#FF8C00] shadow-md hover:shadow-lg hover:shadow-[#FF8C00]/25 flex items-center justify-center cursor-pointer transition-all hover:scale-110"
+          title={isCollapsed || !isOpen ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isCollapsed || !isOpen ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed || !isOpen ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          )}
+        </button>
+
         {/* Sidebar Header */}
         <div className="p-4 border-b border-[#333333] flex items-center justify-between bg-[#242424]">
           <div className="flex items-center gap-3 overflow-hidden">
@@ -103,24 +117,6 @@ export default function SidebarNavigation({
               </div>
             )}
           </div>
-
-          {/* Close Button on Mobile */}
-          <button
-            onClick={onClose}
-            className="p-1.5 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-lg hover:bg-[#333333] lg:hidden cursor-pointer"
-            title="Close navigation drawer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* Collapse Toggle on Desktop */}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex p-1.5 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-lg hover:bg-[#333333] cursor-pointer transition-colors"
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
         </div>
 
         {/* Navigation Category Label */}
