@@ -23,8 +23,8 @@ export default function HitlQueueModal({ isOpen, onClose, flaggedItems = [], onR
   };
 
   return (
-  return (
     <div data-testid="hitl-queue-modal" className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 font-sans">
+
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#333333] flex items-center justify-between bg-[#242424]">
