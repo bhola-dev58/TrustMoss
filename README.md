@@ -249,6 +249,7 @@ sequenceDiagram
 | **Latency Tracing** | Microsecond-accurate pipeline stage tracing with interactive visual waterfall HUD in Next.js 14 App Router | `apps/api/tracer.py`<br/>`apps/web/components/hud/LatencyWaterfall.jsx` |
 | **Real-Time Agent Guardrails** | Inbound speech injection filter, Presidio & regex PII masking, pre-LLM relevance verification, and automated circuit breaker | `apps/api/voice_gateway.py`<br/>`apps/api/guardrails/` |
 | **Adversarial Stress Testing** | Interactive Attack Lab testing 8 attack vectors against OWASP Top 10 for LLM with 1-click batch simulation | `apps/api/main.py::/api/attack/simulate`<br/>`apps/web/components/attack/AttackSimulator.jsx` |
+| **Multi-Provider LLM Inference** | Primary HiDevs Gemini 3.5/3.6 Flash engine (100K token grant) with automatic Groq Llama-3.1-8B and deterministic fallback | `apps/api/llm_provider.py`<br/>`apps/api/main.py::call_llm`<br/>`apps/api/voice_gateway.py` |
 | **Auditability & Compliance** | Certified JSON audit export covering GDPR (Articles 15/17/25), NIST AI RMF 1.0, and EU AI Act Article 13 | `apps/api/main.py::/api/compliance/audit-report`<br/>`apps/web/components/audit/ComplianceExportButton.jsx` |
 
 ---

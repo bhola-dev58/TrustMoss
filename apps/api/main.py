@@ -32,6 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from groq import AsyncGroq
 from guardrails import groundedness, pii_scan, relevance
 import livekit_service
+import llm_provider
 import moss_client
 from prompts.catalog import catalog, catalog_as_markdown, get_catalog_entry
 from prompts.crispe import ORCHESTRATOR_V1, render_orchestrator_prompt
@@ -224,17 +225,37 @@ class VoiceTurnRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helper: call Groq LLM
-# ---------------------------------------------------------------------------
+_last_model_used: str = GROQ_MODEL
+
+
 async def call_llm(query: str, context_chunks: list) -> str:
     f"""
-    Calls the Groq LLM using the production ORCHESTRATOR_V1 CRISPE prompt template.
+    Calls the primary LLM (HiDevs Gemini 3.5 Flash) with fallback to Groq Llama-3.1
+    using the production ORCHESTRATOR_V1 CRISPE prompt template.
     Template: prompts/crispe.py::ORCHESTRATOR_V1 (version {ORCHESTRATOR_V1.version})
     """
+    global _last_model_used
     # Render structured CRISPE prompt (Capacity, Request, Insight, Style, Persona, Execute)
     system_prompt, user_message = render_orchestrator_prompt(query, context_chunks)
-
     meta = ORCHESTRATOR_V1.metadata
+    max_tokens = meta.get("max_tokens", 512)
+    temperature = meta.get("temperature", 0.2)
+
+    # 1. Primary: HiDevs Gemini API Gateway (100K Free Token Grant)
+    try:
+        gemini_content = await llm_provider.call_gemini_gateway(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        if gemini_content:
+            _last_model_used = f"{llm_provider.LLM_MODEL} (HiDevs Gateway)"
+            return gemini_content
+    except Exception as exc:
+        logger.warning("HiDevs Gemini primary inference skipped (%s). Using Groq fallback.", exc)
+
+    # 2. Secondary / Fallback: Groq Cloud LLM (llama-3.1-8b-instant)
     try:
         response = await groq_client.chat.completions.create(
             model=GROQ_MODEL,
@@ -242,11 +263,12 @@ async def call_llm(query: str, context_chunks: list) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            max_tokens=meta.get("max_tokens", 512),
-            temperature=meta.get("temperature", 0.2),
+            max_tokens=max_tokens,
+            temperature=temperature,
         )
         content = response.choices[0].message.content.strip()
         if content:
+            _last_model_used = GROQ_MODEL
             return content
         raise ValueError("Groq returned an empty response.")
     except Exception as e:
@@ -254,7 +276,9 @@ async def call_llm(query: str, context_chunks: list) -> str:
         for chunk in context_chunks:
             text = (chunk.get("text") or "").strip()
             if text:
+                _last_model_used = "deterministic-context-grounding"
                 return text
+        _last_model_used = "quarantine-fallback"
         return "I'm unable to complete this request right now. Please try again shortly."
 
 
@@ -405,7 +429,7 @@ async def query_endpoint(request: QueryRequest):
             circuit_breaker_tripped=eval_result.get("circuit_breaker_tripped", False),
             context_chunks_count=len(context_chunks),
             top_retrieval_score=top_score,
-            model_used=GROQ_MODEL,
+            model_used=_last_model_used,
             latency_ms=int(total_ms),
         )
     except Exception as exc:

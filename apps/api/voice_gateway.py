@@ -22,6 +22,7 @@ import uuid
 from dotenv import load_dotenv
 from groq import AsyncGroq
 from guardrails import pii_scan, relevance
+import llm_provider
 import moss_client
 from prompts.crispe import VOICE_AGENT_V1, render_voice_prompt
 from retention import DataCategory, retention_manager
@@ -178,16 +179,41 @@ async def process_voice_turn(
     # 5. LLM reasoning — VOICE_AGENT_V1 CRISPE template (TTS-optimised brevity)
     with tracer.stage("llm_reasoning"):
         _sys, _usr = render_voice_prompt(transcript, context_chunks)
-        _resp = await _voice_groq_client.chat.completions.create(
-            model=_voice_groq_model,
-            messages=[
-                {"role": "system", "content": _sys},
-                {"role": "user", "content": _usr},
-            ],
-            max_tokens=VOICE_AGENT_V1.metadata.get("max_tokens", 256),
-            temperature=VOICE_AGENT_V1.metadata.get("temperature", 0.25),
-        )
-        raw_agent_response = _resp.choices[0].message.content.strip()
+        _max_tokens = VOICE_AGENT_V1.metadata.get("max_tokens", 256)
+        _temp = VOICE_AGENT_V1.metadata.get("temperature", 0.25)
+        raw_agent_response = None
+
+        # 1. Primary: HiDevs Gemini API Gateway (100K token grant)
+        try:
+            raw_agent_response = await llm_provider.call_gemini_gateway(
+                system_prompt=_sys,
+                user_message=_usr,
+                max_tokens=_max_tokens,
+                temperature=_temp,
+            )
+        except Exception as exc:
+            logger.warning("Voice HiDevs Gemini call skipped: %s", exc)
+
+        # 2. Secondary: Groq Cloud API fallback
+        if not raw_agent_response:
+            try:
+                _resp = await _voice_groq_client.chat.completions.create(
+                    model=_voice_groq_model,
+                    messages=[
+                        {"role": "system", "content": _sys},
+                        {"role": "user", "content": _usr},
+                    ],
+                    max_tokens=_max_tokens,
+                    temperature=_temp,
+                )
+                raw_agent_response = _resp.choices[0].message.content.strip()
+            except Exception as exc:
+                logger.warning("Voice Groq call failed (%s). Using safe fallback.", exc)
+                raw_agent_response = (
+                    context_chunks[0].get("text", "")
+                    if context_chunks
+                    else "I am unable to verify that request against the enterprise knowledge base."
+                )
 
     # 6. Outbound Groundedness & PII
     with tracer.stage("groundedness_eval"):
