@@ -18,6 +18,7 @@ import {
   User,
   CheckCircle2,
   Zap,
+  Menu,
 } from 'lucide-react';
 import TrustBadge from '../components/hud/TrustBadge';
 import LatencyWaterfall from '../components/hud/LatencyWaterfall';
@@ -29,6 +30,7 @@ import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer';
 import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard';
 import AttackSimulator from '../components/attack/AttackSimulator';
 import HeaderUserDropdown from '../components/header/HeaderUserDropdown';
+import SidebarNavigation from '../components/navigation/SidebarNavigation';
 import LoginGate from '../components/auth/LoginGate';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
@@ -53,6 +55,8 @@ const DEMO_PRESETS = [
 function OperationsConsole({ isDemoMode, onExitDemo }) {
   const { user, getIdToken } = useAuth();
   const [activeTab, setActiveTab] = useState('agent'); // 'agent', 'database', 'catalog', 'scalability', 'attack'
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [agentMode, setAgentMode] = useState('voice'); // 'voice' or 'text'
   const [selectedDomain, setSelectedDomain] = useState('general');
   const [messages, setMessages] = useState([
@@ -227,130 +231,91 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-[#FFFFFF] flex flex-col font-sans">
-      {/* Top Navigation Bar - Fully Responsive Mobile First */}
-      <header className="border-b border-[#333333] bg-[#1E1E1E]/95 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-6 py-2.5 sm:py-3 shadow-lg flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 lg:gap-4">
-        {/* Brand & Mobile Actions Row */}
-        <div className="flex items-center justify-between gap-2 w-full lg:w-auto">
-          {/* Brand Logo & Title */}
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="p-2 bg-gradient-to-br from-[#FF8C00]/20 to-[#FFC107]/20 border border-[#FF8C00]/40 rounded-xl shadow-inner shadow-[#FF8C00]/20 shrink-0">
-              <Shield className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[#FF8C00]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <h1 className="text-sm sm:text-base font-bold tracking-tight text-[#FFFFFF] flex items-center gap-1">
-                  Trust<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF8C00] to-[#FFC107]">Moss</span>
-                </h1>
-                <span className="hidden sm:inline px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono font-semibold bg-[#FF8C00]/10 text-[#FFC107] border border-[#FF8C00]/30">
-                  Next.js 14
-                </span>
+    <div className="min-h-screen bg-[#121212] text-[#FFFFFF] flex font-sans">
+      {/* Left Sliding Sidebar Navigation */}
+      <SidebarNavigation
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header Bar */}
+        <header className="border-b border-[#333333] bg-[#1E1E1E]/95 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-6 py-2.5 sm:py-3 shadow-lg flex items-center justify-between gap-3">
+          {/* Left: Sidebar Toggle Button + Active View Indicator */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-xl cursor-pointer transition-all shadow-sm flex items-center gap-2 shrink-0"
+              title="Toggle Navigation Sidebar"
+              aria-label="Toggle Navigation Sidebar"
+            >
+              <Menu className="w-4 h-4 text-[#FF8C00]" />
+              <span className="text-xs font-semibold hidden md:inline">Console Menu</span>
+            </button>
+
+            {/* Active View Label & Icon */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-[#FF8C00]/10 border border-[#FF8C00]/30 shrink-0">
+                {activeTab === 'agent' && <Radio className="w-4 h-4 text-[#FF8C00]" />}
+                {activeTab === 'database' && <Database className="w-4 h-4 text-[#FF8C00]" />}
+                {activeTab === 'catalog' && <BookOpen className="w-4 h-4 text-[#FF8C00]" />}
+                {activeTab === 'scalability' && <Gauge className="w-4 h-4 text-[#FF8C00]" />}
+                {activeTab === 'attack' && <Zap className="w-4 h-4 text-rose-400" />}
               </div>
-              <p className="text-[10px] sm:text-xs text-[#9AA0A6] truncate max-w-[140px] xs:max-w-[190px] sm:max-w-none">Zero-Latency Trust &amp; Guardrail Gateway</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-xs sm:text-sm font-bold text-[#FFFFFF] truncate">
+                    {activeTab === 'agent' && 'Agent HUD & Live WebRTC'}
+                    {activeTab === 'database' && 'Postgres & Redis Architecture'}
+                    {activeTab === 'catalog' && 'CRISPE Prompt Catalog'}
+                    {activeTab === 'scalability' && 'k6 Scalability Benchmarks'}
+                    {activeTab === 'attack' && 'Adversarial Attack Lab'}
+                  </h1>
+                  <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 uppercase shrink-0">
+                    Active
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#9AA0A6] truncate hidden sm:block">
+                  TrustMoss Zero-Trust AI Gateway &bull; Next.js 14 App Router
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Actions Menu Dropdown (Mobile) */}
-          <div className="flex lg:hidden items-center shrink-0">
+          {/* Right: Consolidated Header Profile & Compliance Dropdown */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <HeaderUserDropdown
               onOpenHitl={() => setHitlModalOpen(true)}
               flaggedCount={flaggedItems.length}
             />
           </div>
-        </div>
+        </header>
 
-        {/* Global Navigation Tabs - Horizontally Scrollable on Mobile with Smooth Pill Design */}
-        <nav aria-label="Main Navigation" className="flex items-center bg-[#121212] border border-[#333333] rounded-xl p-1 text-xs font-medium overflow-x-auto no-scrollbar w-full lg:w-auto shrink-0 gap-1 shadow-inner">
-          <button
-            onClick={() => setActiveTab('agent')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'agent'
-                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/20 font-bold'
-                : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#1E1E1E]'
-            }`}
-          >
-            <Radio className="w-3.5 h-3.5 shrink-0" />
-            <span>Agent HUD</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('database')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'database'
-                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/20 font-bold'
-                : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#1E1E1E]'
-            }`}
-          >
-            <Database className="w-3.5 h-3.5 shrink-0" />
-            <span>Postgres &amp; Redis</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('catalog')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'catalog'
-                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/20 font-bold'
-                : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#1E1E1E]'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5 shrink-0" />
-            <span>CRISPE Catalog</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('scalability')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'scalability'
-                ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-md shadow-[#FF8C00]/20 font-bold'
-                : 'text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#1E1E1E]'
-            }`}
-          >
-            <Gauge className="w-3.5 h-3.5 shrink-0" />
-            <span>k6 Benchmarks</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('attack')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeTab === 'attack'
-                ? 'bg-rose-600 text-[#FFFFFF] shadow-md shadow-rose-950/40 font-bold'
-                : 'text-[#9AA0A6] hover:text-rose-400 hover:bg-[#1E1E1E]'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-            <span>Attack Lab</span>
-          </button>
-        </nav>
-
-        {/* Actions Menu Dropdown (Desktop) */}
-        <div className="hidden lg:flex items-center shrink-0">
-          <HeaderUserDropdown
-            onOpenHitl={() => setHitlModalOpen(true)}
-            flaggedCount={flaggedItems.length}
-          />
-        </div>
-      </header>
-
-      {/* Demo Sandbox Alert Banner */}
-      {isDemoMode && (
-        <div className="bg-[#FF8C00]/10 border-b border-[#FF8C00]/20 px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#FFC107]">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#FF8C00] animate-pulse shrink-0" />
-            <span className="leading-snug">
-              <strong>Demo Sandbox Mode:</strong> Unverified session. Sign in to enable authenticated audit logging and LiveKit room credentials.
-            </span>
+        {/* Demo Sandbox Alert Banner */}
+        {isDemoMode && (
+          <div className="bg-[#FF8C00]/10 border-b border-[#FF8C00]/20 px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#FFC107]">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#FF8C00] animate-pulse shrink-0" />
+              <span className="leading-snug">
+                <strong>Demo Sandbox Mode:</strong> Unverified session. Sign in to enable authenticated audit logging and LiveKit room credentials.
+              </span>
+            </div>
+            <button
+              onClick={onExitDemo}
+              className="self-start sm:self-auto px-2.5 py-1 bg-[#FF8C00]/20 hover:bg-[#FF8C00]/30 border border-[#FF8C00]/40 text-[#FFFFFF] rounded-lg font-medium text-xs transition-colors shrink-0 cursor-pointer"
+            >
+              Sign In Now
+            </button>
           </div>
-          <button
-            onClick={onExitDemo}
-            className="self-start sm:self-auto px-2.5 py-1 bg-[#FF8C00]/20 hover:bg-[#FF8C00]/30 border border-[#FF8C00]/40 text-[#FFFFFF] rounded-lg font-medium text-xs transition-colors shrink-0 cursor-pointer"
-          >
-            Sign In Now
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Main Tabbed Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
+        {/* Main Tabbed Container */}
+        <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
         {/* TAB 1: LIVE AGENT HUD */}
         {activeTab === 'agent' && (
           <div className="space-y-6">
@@ -554,6 +519,7 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         {/* TAB 5: ADVERSARIAL ATTACK SIMULATOR & STRESS MATRIX */}
         {activeTab === 'attack' && <AttackSimulator />}
       </main>
+      </div>
 
       {/* HITL Review Modal */}
       <HitlQueueModal
