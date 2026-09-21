@@ -248,14 +248,17 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
         <header className="border-b border-[#333333] bg-[#1E1E1E]/95 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-6 py-2.5 sm:py-3 shadow-lg flex items-center justify-between gap-3">
           {/* Left: Sidebar Toggle Button + Active View Indicator */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-xl cursor-pointer transition-all shadow-sm flex items-center justify-center shrink-0"
-              title="Toggle Navigation Sidebar"
-              aria-label="Toggle Navigation Sidebar"
-            >
-              <Menu className="w-4 h-4 text-[#FF8C00]" />
-            </button>
+            {/* Dynamic Opener Button: Visible ONLY on mobile when the sidebar is closed */}
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-[#9AA0A6] hover:text-[#FFFFFF] rounded-xl cursor-pointer transition-all shadow-sm flex items-center justify-center shrink-0"
+                title="Open Navigation Menu"
+                aria-label="Open Navigation Menu"
+              >
+                <Menu className="w-4 h-4 text-[#FF8C00]" />
+              </button>
+            )}
 
             {/* Active View Label & Icon */}
             <div className="flex items-center gap-2 min-w-0">

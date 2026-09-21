@@ -79,14 +79,14 @@ export default function SidebarNavigation({
       {/* Sliding Sidebar Container */}
       <aside
         data-testid="sidebar-navigation"
-        className={`fixed lg:sticky top-0 left-0 z-50 lg:z-20 h-screen bg-[#1E1E1E] border-r border-[#333333] shadow-2xl flex flex-col transition-all duration-300 ease-in-out font-sans ${
+        className={`fixed lg:sticky top-0 left-0 z-50 lg:z-40 h-screen bg-[#1E1E1E] border-r border-[#333333] shadow-2xl flex flex-col transition-all duration-300 ease-in-out font-sans ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'lg:w-20' : 'w-72 lg:w-64'}`}
       >
-        {/* Toggle Button Linked on the Right Border - Icon Only */}
+        {/* Dynamic Single Toggle Button Mounted Directly Over the Right Border */}
         <button
           onClick={isOpen ? onClose : onToggleCollapse}
-          className="absolute top-5 -right-3.5 z-50 w-7 h-7 rounded-full bg-[#1E1E1E] border border-[#333333] hover:border-[#FF8C00] text-[#9AA0A6] hover:text-[#FF8C00] shadow-md hover:shadow-lg hover:shadow-[#FF8C00]/25 flex items-center justify-center cursor-pointer transition-all hover:scale-110"
+          className="absolute top-4 sm:top-5 -right-3.5 z-50 w-7 h-7 rounded-full bg-[#1E1E1E] border-2 border-[#333333] hover:border-[#FF8C00] text-[#FF8C00] hover:text-[#FFC107] shadow-xl flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
           title={isCollapsed || !isOpen ? 'Expand sidebar' : 'Collapse sidebar'}
           aria-label={isCollapsed || !isOpen ? 'Expand sidebar' : 'Collapse sidebar'}
         >
