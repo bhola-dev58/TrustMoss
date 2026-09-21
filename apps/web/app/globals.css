@@ -2,29 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-main: #121212;
+  --bg-surface: #1E1E1E;
+  --bg-surface-alt: #242424;
+  --text-primary: #FFFFFF;
+  --text-secondary: #9AA0A6;
+  --accent-gradient-start: #FF8C00;
+  --accent-gradient-end: #FFC107;
+  --border-subtle: #333333;
+}
+
 @layer base {
   body {
-    background-color: #090d14;
-    color: #e2e8f0;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
-/* Custom scrollbars */
+/* Custom Ember Gradient Utilities */
+.bg-ember-gradient {
+  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+}
+
+.text-ember-gradient {
+  background: linear-gradient(135deg, var(--accent-gradient-start), var(--accent-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.border-ember {
+  border-color: var(--accent-gradient-start);
+}
+
+.glow-ember {
+  box-shadow: 0 0 25px -5px rgba(255, 140, 0, 0.3);
+}
+
+/* Custom scrollbars with Developer Ember & Obsidian palette */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #121212;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.7);
+  background: #333333;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.9);
+  background: #FF8C00;
+}
+
+/* Utility to hide scrollbars on mobile nav tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

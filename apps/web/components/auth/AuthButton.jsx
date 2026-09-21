@@ -33,32 +33,32 @@ export default function AuthButton() {
     return (
       <div
         data-testid="auth-user-badge"
-        className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1 text-xs"
+        className="flex items-center gap-2 bg-[#242424] border border-[#333333] rounded-xl px-2.5 py-1 text-xs shadow-sm font-sans"
       >
         {user.photoURL ? (
           <img
             src={user.photoURL}
             alt={displayName}
-            className="w-5 h-5 rounded-full border border-emerald-500/40 object-cover"
+            className="w-5 h-5 rounded-full border border-[#FF8C00]/40 object-cover"
           />
         ) : (
-          <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-[10px]">
+          <div className="w-5 h-5 rounded-full bg-[#FF8C00]/20 text-[#FFC107] border border-[#FF8C00]/40 flex items-center justify-center font-bold text-[10px]">
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
         <div className="flex flex-col text-left">
-          <span className="font-medium text-slate-200 leading-tight max-w-[110px] truncate">
+          <span className="font-semibold text-[#FFFFFF] leading-tight max-w-[110px] truncate">
             {displayName}
           </span>
-          <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            Authenticated
+          <span className="text-[10px] text-[#FFC107] flex items-center gap-1 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FF8C00] inline-block animate-pulse" />
+            Verified
           </span>
         </div>
         <button
           onClick={logout}
           title="Sign Out"
-          className="ml-1 p-1 text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 rounded-lg transition-colors"
+          className="ml-1 p-1 text-[#9AA0A6] hover:text-rose-400 hover:bg-[#333333] rounded-lg transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
         </button>
@@ -71,7 +71,7 @@ export default function AuthButton() {
       onClick={handleSignIn}
       disabled={signingIn}
       data-testid="auth-login-button"
-      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-xs font-medium rounded-xl flex items-center gap-2 text-slate-200 transition-colors shadow-sm disabled:opacity-50"
+      className="px-3 py-1.5 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/40 text-xs font-semibold rounded-xl flex items-center gap-2 text-[#FFFFFF] transition-all shadow-sm disabled:opacity-50 cursor-pointer font-sans"
     >
       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
         <path
@@ -94,4 +94,5 @@ export default function AuthButton() {
       <span>{signingIn ? 'Connecting...' : 'Sign in with Google'}</span>
     </button>
   );
+
 }

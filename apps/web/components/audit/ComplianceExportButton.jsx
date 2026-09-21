@@ -38,17 +38,18 @@ export default function ComplianceExportButton({ className = '' }) {
     <button
       onClick={handleExport}
       disabled={loading}
-      className={`flex items-center gap-2 px-3 py-1.5 bg-[#131d2e] hover:bg-[#19273e] text-slate-300 hover:text-slate-100 text-xs font-semibold rounded-xl border border-slate-700/70 transition-all shadow-sm cursor-pointer disabled:opacity-50 ${className}`}
+      className={`flex items-center gap-2 px-3 py-1.5 bg-[#242424] hover:bg-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] text-xs font-semibold rounded-xl border border-[#333333] hover:border-[#FF8C00]/40 transition-all shadow-sm cursor-pointer disabled:opacity-50 font-sans ${className}`}
       title="Download certified GDPR, NIST AI RMF, and OWASP audit report"
     >
       {loading ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FF8C00]" />
       ) : downloaded ? (
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <ShieldCheck className="w-3.5 h-3.5 text-[#FFC107]" />
       ) : (
-        <Download className="w-3.5 h-3.5 text-cyan-400" />
+        <Download className="w-3.5 h-3.5 text-[#FF8C00]" />
       )}
       <span>{downloaded ? 'Audit Exported!' : 'Export Compliance Audit'}</span>
     </button>
   );
 }
+

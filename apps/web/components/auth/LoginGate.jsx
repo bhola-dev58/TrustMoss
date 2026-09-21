@@ -44,22 +44,22 @@ export default function LoginGate({ onEnterGuestMode }) {
   return (
     <div
       data-testid="login-gate"
-      className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden"
+      className="min-h-screen bg-[#121212] text-[#FFFFFF] flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans"
     >
-      {/* Ambient background glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-72 h-72 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+      {/* Ambient Ember Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#FF8C00]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-72 h-72 bg-[#FFC107]/5 rounded-full blur-2xl pointer-events-none" />
 
       {/* Main Container */}
-      <div className="relative z-10 max-w-md w-full bg-[#0c1322]/90 border border-slate-800/90 rounded-2xl p-8 shadow-2xl backdrop-blur-xl">
+      <div className="relative z-10 max-w-md w-full bg-[#1E1E1E] border border-[#333333] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
         {/* Header Icon */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="p-3.5 bg-gradient-to-br from-emerald-500/20 to-emerald-700/30 border border-emerald-500/50 rounded-2xl shadow-lg shadow-emerald-500/20">
-              <Shield className="w-8 h-8 text-emerald-400" />
+            <div className="p-3.5 bg-gradient-to-br from-[#FF8C00]/20 to-[#FFC107]/30 border border-[#FF8C00]/50 rounded-2xl shadow-lg shadow-[#FF8C00]/20">
+              <Shield className="w-8 h-8 text-[#FF8C00]" />
             </div>
-            <div className="absolute -bottom-1 -right-1 p-1 bg-slate-900 border border-slate-700 rounded-full">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <div className="absolute -bottom-1 -right-1 p-1 bg-[#121212] border border-[#333333] rounded-full">
+              <Lock className="w-3.5 h-3.5 text-[#FFC107]" />
             </div>
           </div>
         </div>
@@ -67,22 +67,24 @@ export default function LoginGate({ onEnterGuestMode }) {
         {/* Title & Description */}
         <div className="text-center space-y-2 mb-6">
           <div className="flex items-center justify-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white">TrustMoss</h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <h1 className="text-xl font-bold tracking-tight text-[#FFFFFF] flex items-center gap-1.5">
+              Trust<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF8C00] to-[#FFC107]">Moss</span>
+            </h1>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#FF8C00]/10 text-[#FFC107] border border-[#FF8C00]/30">
               Zero-Trust AI
             </span>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-xs text-[#9AA0A6] leading-relaxed">
             Enterprise Trust &amp; Guardrail Gateway for Voice &amp; Text Agents
           </p>
         </div>
 
         {/* Security Notice Box */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 mb-6 text-xs text-slate-300 flex items-start gap-2.5">
-          <Lock className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+        <div className="bg-[#242424] border border-[#333333] rounded-xl p-3 mb-6 text-xs text-[#9AA0A6] flex items-start gap-2.5">
+          <Lock className="w-4 h-4 text-[#FF8C00] mt-0.5 shrink-0" />
           <div>
-            <span className="font-semibold text-white">Operator Authentication Required:</span>
-            <p className="text-slate-400 text-[11px] mt-0.5">
+            <span className="font-semibold text-[#FFFFFF]">Operator Authentication Required:</span>
+            <p className="text-[#9AA0A6] text-[11px] mt-0.5 leading-relaxed">
               Access to agent telemetry, LiveKit WebRTC audio, database records, and HITL overrides is restricted to verified operators.
             </p>
           </div>
@@ -144,34 +146,34 @@ export default function LoginGate({ onEnterGuestMode }) {
           <div className="mt-3">
             <button
               onClick={onEnterGuestMode}
-              className="w-full py-2.5 px-4 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+              className="w-full py-2.5 px-4 bg-[#242424] hover:bg-[#333333] border border-[#333333] hover:border-[#FF8C00]/50 text-[#FFFFFF] font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
             >
-              <Eye className="w-3.5 h-3.5 text-emerald-400" />
+              <Eye className="w-3.5 h-3.5 text-[#FFC107]" />
               <span>Continue in Guest Demo Mode</span>
             </button>
           </div>
         )}
 
         {/* Enterprise Security Features Checklist */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-2">
+        <div className="mt-6 pt-5 border-t border-[#333333] space-y-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#9AA0A6] block mb-2">
             Enterprise Security Standards
           </span>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-[#9AA0A6]">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#FFC107] shrink-0" />
               <span>Zero-Trust RBAC</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#FFC107] shrink-0" />
               <span>Token Verification</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#FFC107] shrink-0" />
               <span>Audit Logging</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#FFC107] shrink-0" />
               <span>GDPR Compliance</span>
             </div>
           </div>
@@ -179,9 +181,10 @@ export default function LoginGate({ onEnterGuestMode }) {
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 mt-8 text-center text-xs text-slate-500">
+      <footer className="relative z-10 mt-8 text-center text-xs text-[#9AA0A6]">
         TrustMoss Security Gateway &bull; Protected by Firebase Enterprise Identity
       </footer>
     </div>
   );
 }
+

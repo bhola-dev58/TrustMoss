@@ -329,28 +329,28 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
   };
 
   return (
-    <div data-testid="livekit-voice-room" className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col gap-5">
+    <div data-testid="livekit-voice-room" className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col gap-5 font-sans">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#333333] pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-            <Radio className={`w-5 h-5 ${inRoom ? 'text-emerald-400 animate-pulse' : 'text-slate-500'}`} />
+          <div className="p-2.5 bg-[#FF8C00]/10 border border-[#FF8C00]/30 rounded-xl shrink-0">
+            <Radio className={`w-5 h-5 ${inRoom ? 'text-[#FF8C00] animate-pulse' : 'text-[#9AA0A6]'}`} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-white text-sm">LiveKit Real-Time Voice Gateway</h3>
+              <h3 className="font-semibold text-[#FFFFFF] text-sm">LiveKit Real-Time Voice Gateway</h3>
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase transition-all ${
                   inRoom
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm shadow-emerald-950/50'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    ? 'bg-[#FF8C00]/15 text-[#FFC107] border border-[#FF8C00]/30 shadow-sm shadow-[#FF8C00]/20'
+                    : 'bg-[#242424] text-[#9AA0A6] border border-[#333333]'
                 }`}
               >
                 {inRoom ? 'Live WebRTC (Connected)' : 'Disconnected'}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              WebRTC audio streaming with active circuit breaker & 8-hop latency tracing
+            <p className="text-xs text-[#9AA0A6] mt-0.5">
+              WebRTC audio streaming with active circuit breaker &amp; 8-hop latency tracing
             </p>
           </div>
         </div>
@@ -360,11 +360,11 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
             <button
               onClick={handleConnect}
               disabled={isConnecting}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-75 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
+              className="px-4 py-2.5 bg-gradient-to-r from-[#FF8C00] to-[#FFC107] hover:from-[#FFA000] hover:to-[#FFD54F] disabled:opacity-75 text-[#121212] rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-[#FF8C00]/25 cursor-pointer"
             >
               {isConnecting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-[#121212]" />
                   <span>Connecting Gateway...</span>
                 </>
               ) : (
@@ -381,8 +381,8 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                 onClick={() => setTtsEnabled(!ttsEnabled)}
                 className={`p-2 rounded-xl border text-xs font-medium transition-colors cursor-pointer ${
                   ttsEnabled
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'bg-slate-800 border-slate-700 text-slate-400'
+                    ? 'bg-[#FF8C00]/15 border-[#FF8C00]/40 text-[#FFC107]'
+                    : 'bg-[#242424] border-[#333333] text-[#9AA0A6]'
                 }`}
                 title={ttsEnabled ? 'Agent TTS audio enabled' : 'Agent TTS muted'}
               >
@@ -395,7 +395,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                 className={`p-2 rounded-xl border text-xs font-medium transition-colors cursor-pointer ${
                   isMuted
                     ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                    : 'bg-[#242424] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF]'
                 }`}
                 title={isMuted ? 'Microphone muted' : 'Microphone unmuted'}
               >
@@ -415,34 +415,34 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
 
       {/* Status Notice Banner */}
       {statusNotice && (
-        <div className="text-[11px] font-mono text-slate-400 bg-slate-950/60 border border-slate-800/80 px-3 py-1.5 rounded-lg flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+        <div className="text-[11px] font-mono text-[#9AA0A6] bg-[#121212] border border-[#333333] px-3 py-1.5 rounded-lg flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#FF8C00] animate-ping shrink-0" />
           <span>{statusNotice}</span>
         </div>
       )}
 
       {/* Connected Room Controls */}
       {inRoom && (
-        <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="bg-[#121212] border border-[#333333] rounded-xl p-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between text-xs text-[#9AA0A6]">
             <span className="flex items-center gap-2 font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              WebRTC Room: <span className="text-white font-semibold">{roomName}</span>
+              <span className="w-2 h-2 rounded-full bg-[#FF8C00] animate-ping" />
+              WebRTC Room: <span className="text-[#FFFFFF] font-semibold">{roomName}</span>
             </span>
-            <span className="font-mono text-emerald-400 text-[11px]">
+            <span className="font-mono text-[#FFC107] text-[11px]">
               Groundedness Gate: &ge; 0.85
             </span>
           </div>
 
           {/* Audio Waveform Stream */}
-          <div className="h-16 flex items-center justify-center gap-1.5 px-4 bg-slate-900/60 rounded-lg overflow-hidden border border-slate-800/50">
+          <div className="h-16 flex items-center justify-center gap-1.5 px-4 bg-[#1E1E1E] rounded-lg overflow-hidden border border-[#333333]">
             {waveformLevels.map((lvl, idx) => (
               <div
                 key={idx}
                 className={`w-1.5 rounded-full transition-all duration-150 ${
                   activeTurn?.circuit_breaker_tripped
                     ? 'bg-gradient-to-t from-rose-500 to-amber-400'
-                    : 'bg-gradient-to-t from-emerald-500 to-teal-300'
+                    : 'bg-gradient-to-t from-[#FF8C00] to-[#FFC107]'
                 }`}
                 style={{ height: `${lvl}%` }}
               />
@@ -457,7 +457,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
               className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer border ${
                 isListening
                   ? 'bg-rose-500 text-white border-rose-400 animate-pulse shadow-lg shadow-rose-950/50'
-                  : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/40'
+                  : 'bg-[#242424] hover:bg-[#333333] text-[#FFC107] border-[#333333] hover:border-[#FF8C00]/40'
               }`}
             >
               <Mic className={`w-4 h-4 ${isListening ? 'animate-bounce' : ''}`} />
@@ -471,12 +471,12 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 placeholder="Or type speech transcript (e.g. 'What is the refund window?')..."
-                className="flex-1 bg-slate-900/80 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                className="flex-1 bg-[#1E1E1E] border border-[#333333] rounded-xl px-3.5 py-2 text-xs text-[#FFFFFF] placeholder-[#9AA0A6] focus:outline-none focus:border-[#FF8C00]"
               />
               <button
                 type="submit"
                 disabled={!customInput.trim() || isProcessing}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+                className="px-3.5 py-2 bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Send Speech</span>
@@ -485,15 +485,15 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
           </div>
 
           {interimTranscript && (
-            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center gap-2 font-mono">
+            <div className="p-2.5 bg-[#FF8C00]/10 border border-[#FF8C00]/30 rounded-lg text-xs text-[#FFC107] flex items-center gap-2 font-mono">
               <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin" />
               <span>Hearing: "{interimTranscript}"</span>
             </div>
           )}
 
           {/* Preset Voice Evaluation Scenarios */}
-          <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-            <span className="text-xs text-slate-400 font-medium">Quick Test Scenarios (1-Click Evaluation):</span>
+          <div className="flex flex-col gap-2 pt-2 border-t border-[#333333]">
+            <span className="text-xs text-[#9AA0A6] font-medium">Quick Test Scenarios (1-Click Evaluation):</span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {VOICE_PRESETS.map((p, idx) => (
                 <button
@@ -507,16 +507,16 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
                       ? 'bg-amber-950/25 border-amber-800/50 text-amber-300 hover:bg-amber-900/35'
                       : p.type === 'phi'
                       ? 'bg-sky-950/25 border-sky-800/50 text-sky-300 hover:bg-sky-900/35'
-                      : 'bg-slate-850/80 border-slate-750 text-slate-200 hover:bg-slate-800'
+                      : 'bg-[#1E1E1E] border-[#333333] hover:border-[#FF8C00]/40 text-[#FFFFFF] hover:bg-[#242424]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-[11px]">{p.label}</span>
                   </div>
-                  <p className="text-[11px] opacity-85 line-clamp-1 mt-0.5 text-slate-300 italic">
+                  <p className="text-[11px] opacity-85 line-clamp-1 mt-0.5 text-[#9AA0A6] italic">
                     "{p.speech}"
                   </p>
-                  <span className="text-[10px] text-slate-400 block mt-1">
+                  <span className="text-[10px] text-[#9AA0A6] block mt-1">
                     {p.desc}
                   </span>
                 </button>
@@ -528,18 +528,18 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
 
       {/* Processing Indicator */}
       {isProcessing && (
-        <div className="flex items-center justify-center gap-2 p-3 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-emerald-400 font-mono">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span>Executing 8-Hop Reliability Pipeline (Moss Retrieval & Guardrails)...</span>
+        <div className="flex items-center justify-center gap-2 p-3 bg-[#121212] border border-[#333333] rounded-xl text-xs text-[#FFC107] font-mono">
+          <Loader2 className="w-4 h-4 animate-spin text-[#FF8C00]" />
+          <span>Executing 8-Hop Reliability Pipeline (Moss Retrieval &amp; Guardrails)...</span>
         </div>
       )}
 
       {/* Active Voice Reliability Turn */}
       {activeTurn && (
-        <div className="flex flex-col gap-3.5 bg-[#080d16] border border-slate-800 rounded-xl p-4.5">
+        <div className="flex flex-col gap-3.5 bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 sm:p-5 shadow-lg">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-[#FFFFFF] flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#FF8C00]" />
               Latest Voice Reliability Turn ({activeTurn.turn_id})
             </span>
             <TrustBadge trust={activeTurn.trust} />
@@ -557,23 +557,23 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
               </div>
             </div>
           ) : (
-            <div className="p-2.5 bg-emerald-950/30 border border-emerald-500/30 rounded-lg flex items-center gap-2 text-emerald-300 text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="p-2.5 bg-[#FF8C00]/10 border border-[#FF8C00]/30 rounded-lg flex items-center gap-2 text-[#FFC107] text-xs">
+              <CheckCircle2 className="w-4 h-4 text-[#FF8C00] shrink-0" />
               <span>Groundedness verified: WebRTC audio stream broadcast safely.</span>
             </div>
           )}
 
           {/* Turn Transcript Comparison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-lg">
-              <span className="text-slate-400 block font-mono text-[11px] mb-1">User Speech Input (STT):</span>
-              <p className="text-slate-200 italic">"{activeTurn.user_transcript}"</p>
+            <div className="p-3 bg-[#121212] border border-[#333333] rounded-lg">
+              <span className="text-[#9AA0A6] block font-mono text-[11px] mb-1">User Speech Input (STT):</span>
+              <p className="text-[#FFFFFF] italic">"{activeTurn.user_transcript}"</p>
             </div>
-            <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-lg">
-              <span className="text-slate-400 block font-mono text-[11px] mb-1">Agent Voice Output (TTS):</span>
+            <div className="p-3 bg-[#121212] border border-[#333333] rounded-lg">
+              <span className="text-[#9AA0A6] block font-mono text-[11px] mb-1">Agent Voice Output (TTS):</span>
               <p
                 className={`font-medium ${
-                  activeTurn.circuit_breaker_tripped ? 'text-rose-300' : 'text-emerald-300'
+                  activeTurn.circuit_breaker_tripped ? 'text-rose-300' : 'text-[#FFC107]'
                 }`}
               >
                 {activeTurn.final_speech_text}
@@ -584,7 +584,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
           {/* 8-Hop Waterfall Trace */}
           {activeTurn.latency_trace && (
             <div className="mt-1">
-              <span className="text-[11px] font-mono text-slate-400 block mb-1.5">
+              <span className="text-[11px] font-mono text-[#9AA0A6] block mb-1.5">
                 8-Hop Audio Latency Waterfall ({activeTurn.total_latency_ms}ms total):
               </span>
               <LatencyWaterfall latencyTrace={activeTurn.latency_trace} totalMs={activeTurn.total_latency_ms} />
@@ -594,4 +594,5 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
       )}
     </div>
   );
+
 }

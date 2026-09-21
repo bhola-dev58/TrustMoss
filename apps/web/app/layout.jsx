@@ -18,9 +18,10 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-[#090d14] text-slate-100 antialiased font-sans">
+      <body className="min-h-screen bg-[#121212] text-[#FFFFFF] antialiased font-sans selection:bg-[#FF8C00]/30 selection:text-[#FFC107]">
         {children}
       </body>
+
     </html>
   );
 }

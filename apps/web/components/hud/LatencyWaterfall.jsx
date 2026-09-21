@@ -25,15 +25,15 @@ export default function LatencyWaterfall({ trace = [], latencyTrace, totalMs = 0
     webrtc_ingress: 'bg-cyan-500',
     stt_transcription: 'bg-sky-500',
     inbound_guardrail: 'bg-indigo-500',
-    moss_retrieval: 'bg-emerald-500',
-    relevance_gate: 'bg-blue-500',
-    relevance_check: 'bg-blue-500',
+    moss_retrieval: 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107]',
+    relevance_gate: 'bg-amber-500',
+    relevance_check: 'bg-amber-500',
     llm_reasoning: 'bg-purple-500',
     llm_generation: 'bg-purple-500',
     groundedness_eval: 'bg-violet-500',
     groundedness_check: 'bg-violet-500',
-    outbound_pii_check: 'bg-amber-500',
-    pii_scan: 'bg-amber-500',
+    outbound_pii_check: 'bg-rose-500',
+    pii_scan: 'bg-rose-500',
     tts_synthesis: 'bg-teal-500',
   };
 
@@ -44,14 +44,14 @@ export default function LatencyWaterfall({ trace = [], latencyTrace, totalMs = 0
   const maxDuration = Math.max(...actualTrace.map((s) => s.duration_ms || 1), calculatedTotal || 1);
 
   return (
-    <div data-testid="latency-waterfall" className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <Clock className="w-4 h-4 text-emerald-400" />
+    <div data-testid="latency-waterfall" className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 space-y-3 font-sans shadow-md">
+      <div className="flex items-center justify-between border-b border-[#333333] pb-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#FFFFFF]">
+          <Clock className="w-4 h-4 text-[#FF8C00]" />
           <span>8-Hop Microsecond Latency Trace</span>
         </div>
-        <div className="flex items-center gap-1 text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-          <Zap className="w-3 h-3" />
+        <div className="flex items-center gap-1 text-xs font-mono font-medium text-[#FFC107] bg-[#FF8C00]/10 px-2.5 py-0.5 rounded-md border border-[#FF8C00]/30">
+          <Zap className="w-3 h-3 text-[#FF8C00]" />
           <span>Total: {calculatedTotal.toFixed(1)} ms</span>
         </div>
       </div>
@@ -64,24 +64,24 @@ export default function LatencyWaterfall({ trace = [], latencyTrace, totalMs = 0
 
           return (
             <div key={idx} className="text-xs space-y-1">
-              <div className="flex justify-between text-slate-400 font-medium">
+              <div className="flex justify-between text-[#9AA0A6] font-medium">
                 <span className="flex items-center gap-1.5">
                   {isMoss && (
-                    <span className="text-[10px] bg-emerald-900/60 text-emerald-300 px-1 rounded border border-emerald-600/40 font-mono">
+                    <span className="text-[10px] bg-[#FF8C00]/20 text-[#FFC107] px-1 rounded border border-[#FF8C00]/40 font-mono font-bold">
                       MOSS
                     </span>
                   )}
                   {stageLabels[step.stage] || step.stage}
                 </span>
-                <span className={`font-mono ${isMoss ? 'text-emerald-400 font-semibold' : 'text-slate-300'}`}>
+                <span className={`font-mono ${isMoss ? 'text-[#FFC107] font-bold' : 'text-[#FFFFFF]'}`}>
                   {duration < 1 ? `${(duration * 1000).toFixed(0)} µs` : `${duration.toFixed(2)} ms`}
                 </span>
               </div>
-              <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-[#121212] border border-[#333333]/50 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    stageColors[step.stage] || 'bg-slate-500'
-                  } ${isMoss ? 'shadow-[0_0_8px_rgba(16,185,129,0.5)]' : ''}`}
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    stageColors[step.stage] || 'bg-[#FF8C00]'
+                  }`}
                   style={{ width: `${percentage}%` }}
                 />
               </div>
