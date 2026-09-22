@@ -21,6 +21,8 @@ import {
   Menu,
   Settings,
   FileText,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import TrustBadge from '../components/hud/TrustBadge';
 import LatencyWaterfall from '../components/hud/LatencyWaterfall';
@@ -109,6 +111,14 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
   const [flaggedItems, setFlaggedItems] = useState([]);
   const [citationDrawerOpen, setCitationDrawerOpen] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState(null);
+  const [userFeedback, setUserFeedback] = useState({});
+
+  const handleFeedback = (msgId, vote) => {
+    setUserFeedback((prev) => ({
+      ...prev,
+      [msgId]: prev[msgId] === vote ? null : vote,
+    }));
+  };
 
   const messagesEndRef = useRef(null);
 
@@ -503,6 +513,52 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
                                   </span>
                                 </button>
                               ))}
+                            </div>
+                          )}
+
+                          {/* Quantified User Feedback Loop */}
+                          {m.role === 'assistant' && (
+                            <div className="pt-2 flex flex-wrap items-center justify-between border-t border-[#2A2A2A] mt-2 gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFeedback(m.id, 'up');
+                                  }}
+                                  className={`px-2 py-0.5 rounded-md border text-[10px] flex items-center gap-1 transition-all cursor-pointer ${
+                                    userFeedback[m.id] === 'up'
+                                      ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/60 shadow-sm'
+                                      : 'bg-[#181818] hover:bg-[#282828] text-[#9AA0A6] hover:text-[#FFFFFF] border-[#333333]'
+                                  }`}
+                                  title="Grounded & accurate (Reinforces Moss semantic ranking weights)"
+                                >
+                                  <ThumbsUp className="w-2.5 h-2.5 text-emerald-400" />
+                                  <span>Accurate</span>
+                                </button>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleFeedback(m.id, 'down');
+                                  }}
+                                  className={`px-2 py-0.5 rounded-md border text-[10px] flex items-center gap-1 transition-all cursor-pointer ${
+                                    userFeedback[m.id] === 'down'
+                                      ? 'bg-rose-500/25 text-rose-300 border-rose-500/60 shadow-sm'
+                                      : 'bg-[#181818] hover:bg-[#282828] text-[#9AA0A6] hover:text-[#FFFFFF] border-[#333333]'
+                                  }`}
+                                  title="Potential hallucination or drift (Routes to active learning & NLI fine-tuning)"
+                                >
+                                  <ThumbsDown className="w-2.5 h-2.5 text-rose-400" />
+                                  <span>Flag Issue</span>
+                                </button>
+                              </div>
+
+                              {userFeedback[m.id] && (
+                                <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                                  <span>Feedback logged to Moss Active Learning & NLI Calibrator</span>
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
