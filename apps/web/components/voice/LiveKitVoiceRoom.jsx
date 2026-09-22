@@ -81,94 +81,182 @@ export default function LiveKitVoiceRoom({
   }, [voiceSettings?.persona]);
 
   const recognitionRef = useRef(null);
+  const inRoomRef = useRef(false);
+  const isMutedRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+  const isListeningRef = useRef(false);
+  const transcriptBufferRef = useRef('');
+  const silenceTimerRef = useRef(null);
+  const restartTimerRef = useRef(null);
 
-  // Animate audio waveform when in room or speaking
+  useEffect(() => { inRoomRef.current = inRoom; }, [inRoom]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
+  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
+  // Animate audio waveform ONLY when actively listening to microphone
   useEffect(() => {
-    if (!inRoom) return;
+    if (!isListening) {
+      setWaveformLevels([12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12]);
+      return;
+    }
     const interval = setInterval(() => {
       setWaveformLevels((prev) =>
-        prev.map(() => {
-          if (isListening || isProcessing) {
-            return Math.floor(Math.random() * 80) + 20;
-          }
-          return Math.floor(Math.random() * 35) + 10;
-        })
+        prev.map(() => Math.floor(Math.random() * 75) + 25)
       );
-    }, 160);
+    }, 120);
     return () => clearInterval(interval);
-  }, [inRoom, isListening, isProcessing]);
+  }, [isListening]);
 
-  // Setup Web Speech API recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        try {
-          const rec = new SpeechRecognition();
-          rec.continuous = false;
-          rec.interimResults = true;
-          rec.lang = voiceSettings?.accent || 'en-IN';
-
-          rec.onstart = () => {
-            setIsListening(true);
-            setInterimTranscript('');
-            setStatusNotice('Listening to your microphone...');
-          };
-
-          rec.onresult = (event) => {
-            let current = '';
-            for (let i = 0; i < event.results.length; i++) {
-              current += event.results[i][0].transcript;
-            }
-            setInterimTranscript(current);
-          };
-
-          rec.onerror = (event) => {
-            console.warn('Speech recognition error:', event.error);
-            setIsListening(false);
-            if (event.error === 'not-allowed') {
-              setStatusNotice('Microphone access denied. You can use text input or presets below.');
-            } else {
-              setStatusNotice('Voice recognition paused. Try presets or typing.');
-            }
-          };
-
-          rec.onend = () => {
-            setIsListening(false);
-            if (interimTranscript.trim()) {
-              handleSpeechTurn(interimTranscript.trim());
-              setInterimTranscript('');
-            }
-          };
-
-          recognitionRef.current = rec;
-        } catch (e) {
-          setSpeechSupported(false);
-        }
-      } else {
-        setSpeechSupported(false);
-      }
+  const startListening = () => {
+    if (!recognitionRef.current || !inRoomRef.current || isMutedRef.current || isSpeakingRef.current || isProcessingRef.current) {
+      return;
     }
-  }, [interimTranscript]);
+    if (isListeningRef.current) return;
+    try {
+      recognitionRef.current.start();
+    } catch (_) {
+      // Ignored if already started
+    }
+  };
+
+  const stopListening = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+    try {
+      recognitionRef.current?.stop();
+    } catch (_) {}
+    setIsListening(false);
+  };
+
+  // Setup Web Speech API continuous duplex recognition with auto-send on silence
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+      return;
+    }
+
+    try {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = voiceSettings?.accent || 'en-IN';
+
+      rec.onstart = () => {
+        setIsListening(true);
+        setStatusNotice('Microphone active. Speak and pause to auto-send...');
+      };
+
+      rec.onresult = (event) => {
+        // Conversational barge-in: If assistant was speaking, interrupt immediately
+        if (isSpeakingRef.current) {
+          stopSpeech();
+        }
+
+        let fullTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          fullTranscript += event.results[i][0].transcript;
+        }
+
+        transcriptBufferRef.current = fullTranscript;
+        setInterimTranscript(fullTranscript);
+
+        // Reset silence timer on incoming audio
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+
+        // AUTO-SEND when client stops speaking (950ms silence window)
+        silenceTimerRef.current = setTimeout(() => {
+          const finalQuery = transcriptBufferRef.current.trim();
+          if (finalQuery.length > 1 && !isProcessingRef.current) {
+            transcriptBufferRef.current = '';
+            setInterimTranscript('');
+            try { rec.stop(); } catch (_) {}
+            setIsListening(false);
+            handleSpeechTurn(finalQuery);
+          }
+        }, 950);
+      };
+
+      rec.onspeechend = () => {
+        // Accelerated auto-send when acoustic voice sound ceases
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = setTimeout(() => {
+          const finalQuery = transcriptBufferRef.current.trim();
+          if (finalQuery.length > 1 && !isProcessingRef.current) {
+            transcriptBufferRef.current = '';
+            setInterimTranscript('');
+            try { rec.stop(); } catch (_) {}
+            setIsListening(false);
+            handleSpeechTurn(finalQuery);
+          }
+        }, 400);
+      };
+
+      rec.onerror = (event) => {
+        console.warn('Speech recognition notice:', event.error);
+        if (event.error === 'not-allowed') {
+          setIsListening(false);
+          setStatusNotice('Microphone access denied. You can use presets or text input.');
+        } else if (event.error === 'no-speech') {
+          if (inRoomRef.current && !isMutedRef.current && !isSpeakingRef.current && !isProcessingRef.current) {
+            if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+            restartTimerRef.current = setTimeout(() => startListening(), 200);
+          }
+        }
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+        const lingering = transcriptBufferRef.current.trim();
+        if (lingering.length > 1 && !isProcessingRef.current) {
+          transcriptBufferRef.current = '';
+          setInterimTranscript('');
+          handleSpeechTurn(lingering);
+        } else if (inRoomRef.current && !isMutedRef.current && !isSpeakingRef.current && !isProcessingRef.current) {
+          if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = setTimeout(() => startListening(), 200);
+        }
+      };
+
+      recognitionRef.current = rec;
+    } catch (e) {
+      console.warn('SpeechRecognition initialization error:', e);
+      setSpeechSupported(false);
+    }
+
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      try { recognitionRef.current?.stop(); } catch (_) {}
+    };
+  }, [voiceSettings?.accent]);
 
   const toggleMicListening = () => {
     if (!recognitionRef.current) {
-      setStatusNotice('Live browser microphone speech recognition is not supported in this browser. Please use the text input or presets below.');
+      setStatusNotice('Live browser microphone speech recognition is not supported in this browser.');
       return;
     }
 
     if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+      stopListening();
+      setStatusNotice('Microphone paused.');
     } else {
-      try {
-        setStatusNotice('Initializing microphone...');
-        recognitionRef.current.start();
-      } catch (err) {
-        console.warn('Recognition start error:', err);
-        recognitionRef.current.stop();
-        setIsListening(false);
-      }
+      setStatusNotice('Initializing microphone...');
+      startListening();
     }
   };
 
@@ -200,21 +288,24 @@ export default function LiveKitVoiceRoom({
       }
 
       setInRoom(true);
-      setStatusNotice('Connected to LiveKit Real-Time Voice Gateway. Ready for speech input.');
+      inRoomRef.current = true;
+      setStatusNotice('Connected to LiveKit Real-Time Voice Gateway. Speak and pause to auto-send.');
+      setTimeout(() => startListening(), 400);
     } catch (err) {
       console.warn('Connecting with fast fallback session:', err);
       setToken('simulated-jwt-token');
       setInRoom(true);
-      setStatusNotice('Connected to LiveKit Voice Gateway (Active WebRTC Simulation).');
+      inRoomRef.current = true;
+      setStatusNotice('Connected to LiveKit Voice Gateway (Active WebRTC Simulation). Speak to auto-send.');
+      setTimeout(() => startListening(), 400);
     } finally {
       setIsConnecting(false);
     }
   };
 
   const handleDisconnect = () => {
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    inRoomRef.current = false;
+    stopListening();
     stopSpeech();
     setInRoom(false);
     setToken(null);
@@ -322,8 +413,11 @@ export default function LiveKitVoiceRoom({
     }
   };
 
-  const speakText = (text, isSuppressed) => {
-    if (!ttsEnabled || isSuppressed || typeof window === 'undefined' || !window.speechSynthesis) {
+  const speakText = (text) => {
+    if (!ttsEnabled || typeof window === 'undefined' || !window.speechSynthesis) {
+      if (inRoomRef.current && !isMutedRef.current) {
+        setTimeout(() => startListening(), 300);
+      }
       return;
     }
     try {
@@ -331,13 +425,18 @@ export default function LiveKitVoiceRoom({
       window.speechSynthesis.cancel();
 
       // Clean speech text for natural listening (strip markdown and URLs)
-      const cleaned = text
+      const cleaned = (text || '')
         .replace(/[*_#`~]/g, '')
         .replace(/https?:\/\/\S+/g, 'link')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
         .trim();
 
-      if (!cleaned) return;
+      if (!cleaned) {
+        if (inRoomRef.current && !isMutedRef.current) {
+          setTimeout(() => startListening(), 300);
+        }
+        return;
+      }
 
       const utterance = new SpeechSynthesisUtterance(cleaned);
       const availableVoices = voices.length > 0 ? voices : window.speechSynthesis.getVoices();
@@ -345,7 +444,7 @@ export default function LiveKitVoiceRoom({
 
       if (selected) {
         utterance.voice = selected;
-        utterance.lang = selected.lang || 'en-US';
+        utterance.lang = selected.lang || voiceSettings?.accent || 'en-IN';
       }
 
       // Calibrated natural pacing & intonation for real voice timbre
@@ -353,12 +452,27 @@ export default function LiveKitVoiceRoom({
       utterance.pitch = voicePersona === 'aura' ? 1.04 : voicePersona === 'echo' ? 0.94 : voicePersona === 'indic' ? 1.02 : 1.0;
       utterance.volume = 1.0;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = (e) => {
-        console.warn('Browser TTS error:', e);
-        setIsSpeaking(false);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        isSpeakingRef.current = true;
+        // Stop listening while assistant is speaking to avoid feedback loop
+        try { recognitionRef.current?.stop(); } catch (_) {}
+        setIsListening(false);
+        setStatusNotice(`Auto-speaking response via ${selected?.name || voicePersona}...`);
       };
+
+      const finishSpeech = () => {
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        setStatusNotice('Response spoken. Listening for your next voice query...');
+        // Auto-resume microphone listening for the next voice turn
+        if (inRoomRef.current && !isMutedRef.current && !isProcessingRef.current) {
+          setTimeout(() => startListening(), 350);
+        }
+      };
+
+      utterance.onend = finishSpeech;
+      utterance.onerror = finishSpeech;
 
       // Slight delay avoids Chromium cancel/speak collision bug
       setTimeout(() => {
@@ -366,12 +480,16 @@ export default function LiveKitVoiceRoom({
           window.speechSynthesis.speak(utterance);
         } catch (err) {
           console.warn('Speech invocation error:', err);
-          setIsSpeaking(false);
+          finishSpeech();
         }
-      }, 20);
+      }, 25);
     } catch (e) {
       console.warn('Browser TTS playback error:', e);
       setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      if (inRoomRef.current && !isMutedRef.current) {
+        setTimeout(() => startListening(), 300);
+      }
     }
   };
 
@@ -384,15 +502,18 @@ export default function LiveKitVoiceRoom({
         ? 'Hello! I am Aura, your zero-latency voice assistant powered by TrustMoss.'
         : voicePersona === 'echo'
         ? 'Greetings! I am Echo, streaming verified real-time audio with active circuit breaker defense.'
-        : 'Welcome to TrustMoss. All voice hops are certified with sub-fifty millisecond latency.',
-      false
+        : 'Welcome to TrustMoss. All voice hops are certified with sub-fifty millisecond latency.'
     );
   };
 
   const handleSpeechTurn = async (spokenText) => {
-    if (!spokenText || isProcessing) return;
+    if (!spokenText || !spokenText.trim() || isProcessingRef.current) return;
+
+    // Stop listening during processing
+    stopListening();
     setIsProcessing(true);
-    setStatusNotice(`Evaluating audio turn: "${spokenText.slice(0, 40)}..."`);
+    isProcessingRef.current = true;
+    setStatusNotice(`Evaluating recognized voice query: "${spokenText.slice(0, 40)}..."`);
 
     try {
       const res = await fetch('/api/voice/process-transcript', {
@@ -419,11 +540,12 @@ export default function LiveKitVoiceRoom({
       setActiveTurn(data);
       if (onTurnLogged) onTurnLogged(data);
 
-      speakText(data.final_speech_text, data.circuit_breaker_tripped);
+      // Auto-speak response once input voice is recognized
+      speakText(data.final_speech_text || data.answer);
       setStatusNotice(
         data.circuit_breaker_tripped
-          ? 'Circuit breaker tripped! TTS voice stream suppressed.'
-          : 'Voice turn verified and rendered.'
+          ? 'Circuit breaker tripped! Auto-speaking trust verdict.'
+          : 'Voice turn verified. Auto-speaking response.'
       );
     } catch (err) {
       console.warn('Using client-side voice simulation fallback:', err);
@@ -476,14 +598,16 @@ export default function LiveKitVoiceRoom({
       setActiveTurn(mockTurn);
       if (onTurnLogged) onTurnLogged(mockTurn);
 
-      speakText(mockTurn.final_speech_text, mockTurn.circuit_breaker_tripped);
+      // Auto-speak response once input voice is recognized
+      speakText(mockTurn.final_speech_text);
       setStatusNotice(
         mockTurn.circuit_breaker_tripped
-          ? 'Circuit breaker tripped! Audio output suppressed.'
-          : 'Voice turn completed.'
+          ? 'Circuit breaker tripped! Auto-speaking trust verdict.'
+          : 'Voice turn completed. Auto-speaking response.'
       );
     } finally {
       setIsProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -760,12 +884,12 @@ export default function LiveKitVoiceRoom({
               disabled={isProcessing}
               className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer border ${
                 isListening
-                  ? 'bg-rose-500 text-white border-rose-400 animate-pulse shadow-lg shadow-rose-950/50'
+                  ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] border-[#FF8C00] font-bold shadow-lg shadow-[#FF8C00]/25 animate-pulse'
                   : 'bg-[#242424] hover:bg-[#333333] text-[#FFC107] border-[#333333] hover:border-[#FF8C00]/40'
               }`}
             >
-              <Mic className={`w-4 h-4 ${isListening ? 'animate-bounce' : ''}`} />
-              <span>{isListening ? 'Listening (Click to Stop)...' : 'Talk with Microphone'}</span>
+              <Mic className={`w-4 h-4 ${isListening ? 'animate-bounce text-[#121212]' : ''}`} />
+              <span>{isListening ? 'Listening (Pause to Auto-Send)...' : 'Microphone Paused (Click to Resume)'}</span>
             </button>
 
             {/* Custom Spoken Text Query Input */}
@@ -791,7 +915,7 @@ export default function LiveKitVoiceRoom({
           {interimTranscript && (
             <div className="p-2.5 bg-[#FF8C00]/10 border border-[#FF8C00]/30 rounded-lg text-xs text-[#FFC107] flex items-center gap-2 font-mono">
               <Sparkles className="w-3.5 h-3.5 shrink-0 animate-spin" />
-              <span>Hearing: "{interimTranscript}"</span>
+              <span>Hearing: "{interimTranscript}" (will auto-send when you pause)</span>
             </div>
           )}
 
