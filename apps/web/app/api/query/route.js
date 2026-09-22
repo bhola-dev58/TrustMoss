@@ -117,9 +117,12 @@ export async function POST(request) {
       ];
     }
 
+    const targetModel = body.model || 'gemini-3.5-flash';
+
     return NextResponse.json({
       query_id: `query-sim-${Date.now()}`,
       answer,
+      model: targetModel,
       trust: {
         verdict,
         score,

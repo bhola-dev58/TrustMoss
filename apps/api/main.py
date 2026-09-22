@@ -192,6 +192,7 @@ class QueryRequest(BaseModel):
     session_id: str | None = None
     agent_id: str | None = "default-agent"
     domain: str | None = "general"
+    model: str | None = "gemini-3.5-flash"
 
 
 class QueryResponse(BaseModel):
@@ -205,6 +206,7 @@ class QueryResponse(BaseModel):
     total_latency_ms: float
     timestamp: str
     domain: str | None = "general"
+    model: str | None = "gemini-3.5-flash"
 
 
 class LiveKitTokenRequest(BaseModel):
@@ -228,9 +230,9 @@ class VoiceTurnRequest(BaseModel):
 _last_model_used: str = GROQ_MODEL
 
 
-async def call_llm(query: str, context_chunks: list) -> str:
+async def call_llm(query: str, context_chunks: list, model: str | None = None) -> str:
     f"""
-    Calls the primary LLM (HiDevs Gemini 3.5 Flash) with fallback to Groq Llama-3.1
+    Calls the primary LLM (HiDevs Gemini 3.5 Flash / Lite / 3.6 Flash) with fallback to Groq Llama-3.1
     using the production ORCHESTRATOR_V1 CRISPE prompt template.
     Template: prompts/crispe.py::ORCHESTRATOR_V1 (version {ORCHESTRATOR_V1.version})
     """
@@ -240,17 +242,19 @@ async def call_llm(query: str, context_chunks: list) -> str:
     meta = ORCHESTRATOR_V1.metadata
     max_tokens = meta.get("max_tokens", 512)
     temperature = meta.get("temperature", 0.2)
+    target_gemini_model = model or llm_provider.LLM_MODEL
 
     # 1. Primary: HiDevs Gemini API Gateway (100K Free Token Grant)
     try:
         gemini_content = await llm_provider.call_gemini_gateway(
             system_prompt=system_prompt,
             user_message=user_message,
+            model=target_gemini_model,
             max_tokens=max_tokens,
             temperature=temperature,
         )
         if gemini_content:
-            _last_model_used = f"{llm_provider.LLM_MODEL} (HiDevs Gateway)"
+            _last_model_used = target_gemini_model
             return gemini_content
     except Exception as exc:
         logger.warning("HiDevs Gemini primary inference skipped (%s). Using Groq fallback.", exc)
@@ -325,7 +329,7 @@ async def query_endpoint(request: QueryRequest):
     # Stage 3: LLM generation (Groq)
     # ------------------------------------------------------------------
     with tracer.stage("llm_generation"):
-        answer = await call_llm(request.query, context_chunks)
+        answer = await call_llm(request.query, context_chunks, model=request.model)
 
     # ------------------------------------------------------------------
     # Stage 4: Outbound PII scan
@@ -398,6 +402,7 @@ async def query_endpoint(request: QueryRequest):
         "total_latency_ms": total_ms,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "domain": request.domain or "general",
+        "model": request.model or _last_model_used or "gemini-3.5-flash",
     }
 
     # Store in session history (keep last 50 in memory)
