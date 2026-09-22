@@ -64,6 +64,13 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [agentMode, setAgentMode] = useState('voice'); // 'voice' or 'text'
   const [selectedDomain, setSelectedDomain] = useState('general');
+  const [voiceSettings, setVoiceSettings] = useState({
+    accent: 'en-IN',
+    persona: 'indic',
+    codec: 'opus-64',
+    noiseCancellation: true,
+    dspProfile: 'standard',
+  });
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -422,7 +429,11 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
 
             {/* Acting Interface based on configured mode */}
             {agentMode === 'voice' ? (
-              <LiveKitVoiceRoom onTurnLogged={handleVoiceTurnLogged} />
+              <LiveKitVoiceRoom
+                onTurnLogged={handleVoiceTurnLogged}
+                voiceSettings={voiceSettings}
+                onUpdateVoiceSettings={setVoiceSettings}
+              />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Chat Column */}
@@ -599,6 +610,8 @@ function OperationsConsole({ isDemoMode, onExitDemo }) {
             setAgentMode={setAgentMode}
             selectedDomain={selectedDomain}
             setSelectedDomain={setSelectedDomain}
+            voiceSettings={voiceSettings}
+            setVoiceSettings={setVoiceSettings}
             onLaunchHud={() => setActiveTab('agent')}
           />
         )}

@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Database,
   Sparkles,
+  Play,
 } from 'lucide-react';
 
 const DOMAIN_OPTIONS = [
@@ -45,13 +46,133 @@ const DOMAIN_OPTIONS = [
   },
 ];
 
+const ACCENT_OPTIONS = [
+  {
+    id: 'en-IN',
+    persona: 'indic',
+    name: 'Indian English (en-IN)',
+    desc: 'Indian English native speaker cadence & prosody (en-IN)',
+    badge: 'ACTIVE',
+  },
+  {
+    id: 'en-US',
+    persona: 'aura',
+    name: 'US English (en-US)',
+    desc: 'North American conversational cadence & prosody (en-US)',
+    badge: 'Standard',
+  },
+  {
+    id: 'en-GB',
+    persona: 'studio',
+    name: 'British English (en-GB)',
+    desc: 'RP executive broadcast cadence & prosody (en-GB)',
+    badge: 'Studio',
+  },
+  {
+    id: 'en-AU',
+    persona: 'echo',
+    name: 'Australian English (en-AU)',
+    desc: 'Modern Australian conversational prosody (en-AU)',
+    badge: 'Natural',
+  },
+];
+
+const CODEC_OPTIONS = [
+  {
+    id: 'opus-64',
+    name: 'Opus Fullband (64 kbps VBR)',
+    desc: 'Opus Fullband 48kHz Stereo • 64 kbps VBR',
+    badge: 'Default',
+  },
+  {
+    id: 'opus-128',
+    name: 'Opus Ultra-HD (128 kbps CBR)',
+    desc: 'Opus High-Fidelity 48kHz Stereo • 128 kbps Constant Bitrate',
+    badge: 'Studio HD',
+  },
+  {
+    id: 'opus-32',
+    name: 'Opus Voice (32 kbps VBR)',
+    desc: 'Opus Speech Optimized 24kHz Mono • 32 kbps Low-Bandwidth',
+    badge: 'Low-BW',
+  },
+  {
+    id: 'g711',
+    name: 'G.711u / PCMU (64 kbps)',
+    desc: 'G.711u / PCMU 8kHz Companded • 64 kbps Legacy PSTN',
+    badge: 'Telephony',
+  },
+];
+
+const NOISE_PROFILES = [
+  {
+    id: 'standard',
+    name: 'AEC + AGC (Standard)',
+    desc: 'Client-side WebRTC Acoustic Echo Cancellation (AEC) + AGC',
+  },
+  {
+    id: 'krisp',
+    name: 'AEC + AGC + Neural Denoise',
+    desc: 'Client-side WebRTC AEC + AGC with deep learning background noise suppression',
+  },
+  {
+    id: 'raw',
+    name: 'Raw Audio Passthrough',
+    desc: 'DSP Bypassed for external studio microphone & hardware mixer',
+  },
+];
+
 export default function SettingsPanel({
   agentMode = 'voice',
   setAgentMode,
   selectedDomain = 'general',
   setSelectedDomain,
+  voiceSettings,
+  setVoiceSettings,
   onLaunchHud,
 }) {
+  const [internalVoice, setInternalVoice] = React.useState({
+    accent: 'en-IN',
+    persona: 'indic',
+    codec: 'opus-64',
+    noiseCancellation: true,
+    dspProfile: 'standard',
+  });
+
+  const currentVoice = voiceSettings || internalVoice;
+
+  const updateVoice = (updates) => {
+    if (setVoiceSettings) {
+      setVoiceSettings((prev) => ({ ...prev, ...updates }));
+    } else {
+      setInternalVoice((prev) => ({ ...prev, ...updates }));
+    }
+  };
+
+  const selectedAccent = ACCENT_OPTIONS.find((a) => a.id === currentVoice.accent) || ACCENT_OPTIONS[0];
+  const selectedCodec = CODEC_OPTIONS.find((c) => c.id === currentVoice.codec) || CODEC_OPTIONS[0];
+  const selectedNoiseProfile = NOISE_PROFILES.find((p) => p.id === currentVoice.dspProfile) || NOISE_PROFILES[0];
+
+  const handleTestAccent = (accentId) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+        const sampleText =
+          accentId === 'en-IN'
+            ? 'TrustMoss verified. Indian English native speaker cadence is active.'
+            : accentId === 'en-US'
+            ? 'TrustMoss verified. US English conversational cadence is active.'
+            : accentId === 'en-GB'
+            ? 'TrustMoss verified. British executive broadcast cadence is active.'
+            : 'TrustMoss verified. Australian English conversational prosody is active.';
+        const utterance = new SpeechSynthesisUtterance(sampleText);
+        utterance.lang = accentId;
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('Speech synthesis preview failed:', err);
+      }
+    }
+  };
   return (
     <div data-testid="settings-panel" className="space-y-6">
       {/* Header Banner */}
@@ -351,40 +472,143 @@ export default function SettingsPanel({
             </span>
           </div>
 
-          <div className="space-y-3">
-            <div className="p-3 bg-[#141414] border border-[#333333] rounded-xl flex items-center justify-between">
-              <div>
+          <div className="space-y-3.5">
+            {/* Dynamic Native Accent Tuning Control */}
+            <div className="p-3.5 bg-[#141414] border border-[#333333] hover:border-[#FF8C00]/40 rounded-xl space-y-2.5 transition-all shadow-sm">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-[#FF8C00]" />
                   <span className="text-xs font-semibold text-[#FFFFFF]">Native Accent Tuning</span>
                 </div>
-                <p className="text-[10px] text-[#9AA0A6] mt-0.5">
-                  Indian English native speaker cadence &amp; prosody (en-IN)
-                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleTestAccent(selectedAccent.id)}
+                    className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#242424] hover:bg-[#333333] text-[#FFC107] border border-[#333333] hover:border-[#FF8C00]/40 flex items-center gap-1 transition-all cursor-pointer"
+                    title="Play voice sample for current accent"
+                  >
+                    <Play className="w-2.5 h-2.5 fill-current text-[#FF8C00]" />
+                    <span>Sample</span>
+                  </button>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    {selectedAccent.id === 'en-IN' ? 'ACTIVE' : selectedAccent.badge}
+                  </span>
+                </div>
               </div>
-              <span className="px-2 py-1 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                ACTIVE
-              </span>
+
+              <p className="text-[10px] text-[#9AA0A6] leading-relaxed">
+                {selectedAccent.desc}
+              </p>
+
+              {/* Dynamic Accent Options */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+                {ACCENT_OPTIONS.map((acc) => {
+                  const isSelected = acc.id === currentVoice.accent;
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => updateVoice({ accent: acc.id, persona: acc.persona })}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-all cursor-pointer text-left truncate flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#FF8C00]/15 border-[#FF8C00] text-[#FFC107] shadow-sm font-semibold'
+                          : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#252525]'
+                      }`}
+                      title={acc.desc}
+                    >
+                      <span className="truncate">{acc.name}</span>
+                      {isSelected && <CheckCircle2 className="w-3 h-3 text-[#FFC107] shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="p-3 bg-[#141414] border border-[#333333] rounded-xl flex items-center justify-between">
-              <div>
+            {/* Dynamic Codec & Bitrate Control */}
+            <div className="p-3.5 bg-[#141414] border border-[#333333] hover:border-[#FF8C00]/40 rounded-xl space-y-2.5 transition-all shadow-sm">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-[#FFFFFF] block">Codec &amp; Bitrate</span>
-                <p className="text-[10px] text-[#9AA0A6] mt-0.5">
-                  Opus Fullband 48kHz Stereo &bull; 64 kbps VBR
-                </p>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#242424] text-[#9AA0A6] border border-[#333333]">
+                  {selectedCodec.badge}
+                </span>
               </div>
-              <span className="text-[10px] font-mono text-[#9AA0A6]">Default</span>
+
+              <p className="text-[10px] text-[#9AA0A6] leading-relaxed">
+                {selectedCodec.desc}
+              </p>
+
+              {/* Dynamic Codec Options */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1">
+                {CODEC_OPTIONS.map((cod) => {
+                  const isSelected = cod.id === currentVoice.codec;
+                  return (
+                    <button
+                      key={cod.id}
+                      type="button"
+                      onClick={() => updateVoice({ codec: cod.id })}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] border transition-all cursor-pointer text-left flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#FF8C00]/15 border-[#FF8C00] text-[#FFC107] shadow-sm font-semibold'
+                          : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#252525]'
+                      }`}
+                      title={cod.desc}
+                    >
+                      <span className="truncate">{cod.name}</span>
+                      {isSelected && <CheckCircle2 className="w-3 h-3 text-[#FFC107] shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="p-3 bg-[#141414] border border-[#333333] rounded-xl flex items-center justify-between">
-              <div>
+            {/* Dynamic Noise Cancellation Control */}
+            <div className="p-3.5 bg-[#141414] border border-[#333333] hover:border-[#FF8C00]/40 rounded-xl space-y-2.5 transition-all shadow-sm">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-[#FFFFFF] block">Noise Cancellation</span>
-                <p className="text-[10px] text-[#9AA0A6] mt-0.5">
-                  Client-side WebRTC Acoustic Echo Cancellation (AEC) + AGC
-                </p>
+                <button
+                  type="button"
+                  onClick={() => updateVoice({ noiseCancellation: !currentVoice.noiseCancellation })}
+                  className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    currentVoice.noiseCancellation
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-sm'
+                      : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                  }`}
+                  title="Toggle Noise Cancellation processing"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${currentVoice.noiseCancellation ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+                  <span>{currentVoice.noiseCancellation ? 'Enabled' : 'Disabled'}</span>
+                </button>
               </div>
-              <span className="text-[10px] font-mono text-emerald-400 font-bold">Enabled</span>
+
+              <p className="text-[10px] text-[#9AA0A6] leading-relaxed">
+                {currentVoice.noiseCancellation
+                  ? selectedNoiseProfile.desc
+                  : 'Client-side WebRTC Acoustic Echo Cancellation (AEC) + AGC bypassed for raw mic passthrough.'}
+              </p>
+
+              {/* DSP Profiles when enabled */}
+              {currentVoice.noiseCancellation && (
+                <div className="grid grid-cols-3 gap-1.5 pt-1">
+                  {NOISE_PROFILES.map((prof) => {
+                    const isSelected = prof.id === currentVoice.dspProfile;
+                    return (
+                      <button
+                        key={prof.id}
+                        type="button"
+                        onClick={() => updateVoice({ dspProfile: prof.id })}
+                        className={`px-2 py-1 rounded-lg text-[10px] border transition-all cursor-pointer text-center truncate ${
+                          isSelected
+                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold'
+                            : 'bg-[#1E1E1E] border-[#333333] text-[#9AA0A6] hover:text-[#FFFFFF] hover:bg-[#252525]'
+                        }`}
+                        title={prof.desc}
+                      >
+                        {prof.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

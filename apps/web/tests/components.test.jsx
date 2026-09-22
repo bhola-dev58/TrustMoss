@@ -9,6 +9,7 @@ import ContextViewer from '../components/hud/ContextViewer.jsx';
 import DatabaseStatsPanel from '../components/database/DatabaseStatsPanel.jsx';
 import CrispeCatalogViewer from '../components/catalog/CrispeCatalogViewer.jsx';
 import K6BenchmarkDashboard from '../components/scalability/K6BenchmarkDashboard.jsx';
+import SettingsPanel from '../components/settings/SettingsPanel.jsx';
 
 // Backward compatibility re-exports
 import LegacyTrustBadge from '../src/components/TrustBadge.jsx';
@@ -137,6 +138,23 @@ describe('HUD & UI Component Suite', () => {
       expect(html).toContain('Redis Cache');
       expect(html).toContain('Trust Events');
       expect(html).toContain('Audit Logs');
+    });
+  });
+
+  describe('SettingsPanel Component', () => {
+    it('renders dynamic Voice & Speaker Tuning controls with active Indian English accent', () => {
+      const html = renderClean(React.createElement(SettingsPanel));
+      expect(html).toContain('data-testid="settings-panel"');
+      expect(html).toContain('Voice &amp; Speaker Tuning');
+      expect(html).toContain('Native Accent Tuning');
+      expect(html).toContain('Indian English native speaker cadence &amp; prosody (en-IN)');
+      expect(html).toContain('ACTIVE');
+      expect(html).toContain('Codec &amp; Bitrate');
+      expect(html).toContain('Opus Fullband 48kHz Stereo • 64 kbps VBR');
+      expect(html).toContain('Default');
+      expect(html).toContain('Noise Cancellation');
+      expect(html).toContain('Client-side WebRTC Acoustic Echo Cancellation (AEC) + AGC');
+      expect(html).toContain('Enabled');
     });
   });
 });

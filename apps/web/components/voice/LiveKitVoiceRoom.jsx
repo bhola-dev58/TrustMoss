@@ -48,7 +48,11 @@ const VOICE_PRESETS = [
   },
 ];
 
-export default function LiveKitVoiceRoom({ onTurnLogged }) {
+export default function LiveKitVoiceRoom({
+  onTurnLogged,
+  voiceSettings,
+  onUpdateVoiceSettings,
+}) {
   const [inRoom, setInRoom] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -66,9 +70,15 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
   const [statusNotice, setStatusNotice] = useState('');
   const [waveformLevels, setWaveformLevels] = useState([15, 28, 45, 65, 38, 20, 48, 85, 55, 32, 18, 28]);
   const [voices, setVoices] = useState([]);
-  const [voicePersona, setVoicePersona] = useState('indic');
+  const [voicePersona, setVoicePersona] = useState(voiceSettings?.persona || 'indic');
   const [activeVoiceName, setActiveVoiceName] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (voiceSettings?.persona && voiceSettings.persona !== voicePersona) {
+      setVoicePersona(voiceSettings.persona);
+    }
+  }, [voiceSettings?.persona]);
 
   const recognitionRef = useRef(null);
 
@@ -97,7 +107,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
           const rec = new SpeechRecognition();
           rec.continuous = false;
           rec.interimResults = true;
-          rec.lang = 'en-US';
+          rec.lang = voiceSettings?.accent || 'en-IN';
 
           rec.onstart = () => {
             setIsListening(true);
@@ -485,6 +495,23 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
     handleSpeechTurn(text);
   };
 
+  const handlePersonaSelect = (personaKey) => {
+    setVoicePersona(personaKey);
+    if (onUpdateVoiceSettings) {
+      const accentMap = {
+        indic: 'en-IN',
+        aura: 'en-US',
+        echo: 'en-AU',
+        studio: 'en-GB',
+      };
+      onUpdateVoiceSettings((prev) => ({
+        ...prev,
+        persona: personaKey,
+        accent: accentMap[personaKey] || prev?.accent || 'en-IN',
+      }));
+    }
+  };
+
   return (
     <div data-testid="livekit-voice-room" className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col gap-5 font-sans">
       {/* Header bar */}
@@ -509,6 +536,30 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
             <p className="text-xs text-[#9AA0A6] mt-0.5">
               WebRTC audio streaming with active circuit breaker &amp; 8-hop latency tracing
             </p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141414] text-[#FFC107] border border-[#FF8C00]/30 font-semibold flex items-center gap-1">
+                <span>Accent:</span>
+                <span>{voiceSettings?.accent || 'en-IN'}</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141414] text-[#9AA0A6] border border-[#333333]">
+                {voiceSettings?.codec === 'opus-128'
+                  ? 'Opus 128k CBR'
+                  : voiceSettings?.codec === 'opus-32'
+                  ? 'Opus 32k VBR'
+                  : voiceSettings?.codec === 'g711'
+                  ? 'G.711u 64k'
+                  : 'Opus 64k VBR'}
+              </span>
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                  voiceSettings?.noiseCancellation !== false
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                }`}
+              >
+                {voiceSettings?.noiseCancellation !== false ? 'AEC+AGC Active' : 'DSP Bypassed'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -600,7 +651,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
-            onClick={() => setVoicePersona('indic')}
+            onClick={() => handlePersonaSelect('indic')}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               voicePersona === 'indic'
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
@@ -613,7 +664,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
 
           <button
             type="button"
-            onClick={() => setVoicePersona('aura')}
+            onClick={() => handlePersonaSelect('aura')}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               voicePersona === 'aura'
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
@@ -626,7 +677,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
 
           <button
             type="button"
-            onClick={() => setVoicePersona('echo')}
+            onClick={() => handlePersonaSelect('echo')}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               voicePersona === 'echo'
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
@@ -639,7 +690,7 @@ export default function LiveKitVoiceRoom({ onTurnLogged }) {
 
           <button
             type="button"
-            onClick={() => setVoicePersona('studio')}
+            onClick={() => handlePersonaSelect('studio')}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               voicePersona === 'studio'
                 ? 'bg-gradient-to-r from-[#FF8C00] to-[#FFC107] text-[#121212] shadow-sm font-bold'
