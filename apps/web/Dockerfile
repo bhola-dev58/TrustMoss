@@ -40,6 +40,15 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Ensure server.js, public, and static are accessible whether Next outputs standalone flat or nested
+RUN if [ -f apps/web/server.js ]; then \
+      ln -s apps/web/server.js server.js; \
+      mkdir -p apps/web/.next apps/web/public; \
+      cp -rn .next/static apps/web/.next/ 2>/dev/null || true; \
+      cp -rn public/* apps/web/public/ 2>/dev/null || true; \
+      chown -R nextjs:nodejs apps/web server.js; \
+    fi
+
 USER nextjs
 
 EXPOSE 3000
@@ -47,4 +56,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "if [ -f server.js ]; then exec node server.js; elif [ -f apps/web/server.js ]; then exec node apps/web/server.js; else exec node $(find . -name server.js | head -n 1); fi"]

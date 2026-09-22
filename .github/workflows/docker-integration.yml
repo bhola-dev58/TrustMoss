@@ -273,7 +273,7 @@ jobs:
 
       - name: Smoke test — Web UI /api/health (port 3000)
         run: |
-          RESPONSE=$(curl -sf --retry 5 --retry-delay 2 http://localhost:3000/api/health)
+          RESPONSE=$(curl -sf --retry 10 --retry-delay 2 --retry-connrefused http://localhost:3000/api/health)
           echo "Web response: $RESPONSE"
           echo "$RESPONSE" | python3 -c "
           import sys, json
