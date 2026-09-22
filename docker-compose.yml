@@ -269,6 +269,12 @@ services:
       - NODE_ENV=production
       - TRUSTMOSS_API_URL=http://trustmoss-gateway:8000
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - trustmoss-public
 

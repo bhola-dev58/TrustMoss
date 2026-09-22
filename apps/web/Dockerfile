@@ -42,18 +42,18 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Ensure server.js, public, and static are accessible whether Next outputs standalone flat or nested
 RUN if [ -f apps/web/server.js ]; then \
-      ln -s apps/web/server.js server.js; \
+      ln -sf apps/web/server.js server.js; \
       mkdir -p apps/web/.next apps/web/public; \
       cp -rn .next/static apps/web/.next/ 2>/dev/null || true; \
       cp -rn public/* apps/web/public/ 2>/dev/null || true; \
-      chown -R nextjs:nodejs apps/web server.js; \
-    fi
+    fi && \
+    chown -R nextjs:nodejs /app
 
 USER nextjs
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
     CMD wget --quiet --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["sh", "-c", "if [ -f server.js ]; then exec node server.js; elif [ -f apps/web/server.js ]; then exec node apps/web/server.js; else exec node $(find . -name server.js | head -n 1); fi"]
+CMD ["sh", "-c", "if [ -f server.js ]; then exec node server.js; elif [ -f apps/web/server.js ]; then exec node apps/web/server.js; else echo 'CRITICAL: server.js not found in /app. Listing /app:'; ls -laR /app; exit 1; fi"]
