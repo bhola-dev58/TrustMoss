@@ -3,21 +3,23 @@
 @tailwind utilities;
 
 :root {
-  --bg-main: #121212;
-  --bg-surface: #1E1E1E;
-  --bg-surface-alt: #242424;
+  --bg-main: #0E0E10;
+  --bg-surface: #18181B;
+  --bg-surface-alt: #222226;
   --text-primary: #FFFFFF;
-  --text-secondary: #9AA0A6;
+  --text-secondary: #A1A1AA;
   --accent-gradient-start: #FF8C00;
   --accent-gradient-end: #FFC107;
-  --border-subtle: #333333;
+  --border-subtle: #27272A;
 }
 
 @layer base {
   body {
     background-color: var(--bg-main);
     color: var(--text-primary);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -37,21 +39,49 @@
 }
 
 .glow-ember {
-  box-shadow: 0 0 25px -5px rgba(255, 140, 0, 0.3);
+  box-shadow: 0 0 25px -5px rgba(255, 140, 0, 0.35);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+}
+
+.glow-rose {
+  box-shadow: 0 0 20px -5px rgba(244, 63, 94, 0.3);
+}
+
+/* Glassmorphism & Enterprise Surface Cards */
+.glass-panel {
+  background: rgba(26, 26, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-header {
+  background: rgba(18, 18, 20, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Hairline borders & refined micro-interactions */
+.hairline-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Custom scrollbars with Developer Ember & Obsidian palette */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #121212;
+  background: #0E0E10;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
+  background: #27272A;
   border-radius: 4px;
 }
 
