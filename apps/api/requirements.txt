@@ -16,7 +16,7 @@ hvac>=2.3.0       # HashiCorp Vault KV v2 client
 # boto3>=1.35.0  # Uncomment if using AWS Secrets Manager
 
 # ── Phase 9: PostgreSQL & Redis Database Layer ──────────────────────────────
-asyncpg>=0.29.0   # Async PostgreSQL client library
+asyncpg>=0.31.0   # Async PostgreSQL client library
 redis>=5.0.0      # Async Redis client for session caching & circuit breaker
 alembic>=1.13.0   # Database migration engine
 sqlalchemy>=2.0.0 # Required by Alembic for schema migrations
