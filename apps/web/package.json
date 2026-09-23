@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.24",
-    "autoprefixer": "^10.4.20",
+    "autoprefixer": "^10.6.1",
     "clsx": "^2.1.1",
     "firebase": "^11.4.0",
     "livekit-client": "^2.22.3",
