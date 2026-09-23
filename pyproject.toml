@@ -32,6 +32,7 @@ package-mode = false
 ruff = ">=0.6.9"
 bandit = ">=1.7.10"
 pip-audit = ">=2.7.3"
+mypy = ">=1.11.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=9.1.1"
@@ -58,3 +59,12 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B"]
 ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+explicit_package_bases = true
+check_untyped_defs = true
+disallow_untyped_decorators = false

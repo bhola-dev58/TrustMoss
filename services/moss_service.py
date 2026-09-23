@@ -66,7 +66,7 @@ class RetrieveResponse(BaseModel):
 
 
 @app.post("/retrieve", response_model=RetrieveResponse)
-async def retrieve_chunks(req: RetrieveRequest):
+async def retrieve_chunks(req: RetrieveRequest) -> RetrieveResponse:
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
@@ -84,7 +84,7 @@ async def retrieve_chunks(req: RetrieveRequest):
 
 
 @app.get("/indices")
-async def list_indices():
+async def list_indices() -> dict[str, Any]:
     return {
         "active_index": os.getenv("MOSS_INDEX_NAME", "trustmoss-kb"),
         "index_version": os.getenv("MOSS_INDEX_VERSION", "v1.4.0-prod"),
@@ -94,7 +94,7 @@ async def list_indices():
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {
         "service": "moss-service",
         "status": "healthy",

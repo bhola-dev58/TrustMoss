@@ -75,8 +75,10 @@ class OutboundScanResponse(BaseModel):
     reason: str
 
 
+from typing import Any
+
 @app.post("/inbound/scan", response_model=InboundScanResponse)
-async def inbound_scan(req: InboundScanRequest):
+async def inbound_scan(req: InboundScanRequest) -> InboundScanResponse:
     if not req.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
 
@@ -108,7 +110,7 @@ async def inbound_scan(req: InboundScanRequest):
 
 
 @app.post("/outbound/scan", response_model=OutboundScanResponse)
-async def outbound_scan(req: OutboundScanRequest):
+async def outbound_scan(req: OutboundScanRequest) -> OutboundScanResponse:
     pii_res = pii_scan.check(req.response_text)
     return OutboundScanResponse(
         passed=pii_res["passed"],
@@ -119,7 +121,7 @@ async def outbound_scan(req: OutboundScanRequest):
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     return {
         "service": "guardrails-service",
         "status": "healthy",

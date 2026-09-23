@@ -61,7 +61,7 @@ _in_memory_load_tests: dict[str, dict[str, Any]] = {}
 # ─────────────────────────────────────────────────────────────────────────────
 # PostgreSQL — asyncpg Connection Pool
 # ─────────────────────────────────────────────────────────────────────────────
-_pg_pool: object | None = None    # asyncpg.Pool
+_pg_pool: Any = None    # asyncpg.Pool
 MAX_POOL_SIZE: int = 10
 MIN_POOL_SIZE: int = 2
 
@@ -223,7 +223,7 @@ def is_postgres_available() -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Redis — Async Client (Session Cache + Circuit Breaker State)
 # ─────────────────────────────────────────────────────────────────────────────
-_redis_client: object | None = None    # redis.asyncio.Redis
+_redis_client: Any = None    # redis.asyncio.Redis
 
 
 async def init_redis() -> None:

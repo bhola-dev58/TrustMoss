@@ -270,7 +270,8 @@ async def call_llm(query: str, context_chunks: list, model: str | None = None) -
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        content = response.choices[0].message.content.strip()
+        raw_content = response.choices[0].message.content
+        content = raw_content.strip() if raw_content else ""
         if content:
             _last_model_used = GROQ_MODEL
             return content
