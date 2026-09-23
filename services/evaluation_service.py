@@ -356,7 +356,7 @@ async def purge_expired_records():
             purged += 1
         else:
             unexpired.append(item)
-    _hitl_queue = unexpired
+    _hitl_queue[:] = unexpired
     _encrypted_store.save_records(_hitl_queue)
     return {
         "status": "success",
@@ -369,9 +369,8 @@ async def purge_expired_records():
 @app.post("/retention/erasure")
 async def execute_erasure(req: ErasureRequest):
     """Executes GDPR Article 17 Erasure on the HITL store by subject_id or query_id."""
-    global _hitl_queue
     initial_len = len(_hitl_queue)
-    _hitl_queue = [
+    _hitl_queue[:] = [
         item for item in _hitl_queue
         if item.get("subject_id") != req.subject_id and item.get("query_id") != req.subject_id
     ]

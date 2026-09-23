@@ -5,6 +5,7 @@ Unit and Integration Tests for GDPR Compliance & Data Lifecycle Retention Engine
 import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -137,8 +138,13 @@ class TestEvaluationServiceGDPR(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(eval_app)
         self.temp_dir = tempfile.mkdtemp()
+        self._orig_filepath = _encrypted_store.filepath
         _encrypted_store.filepath = Path(self.temp_dir) / "eval_gdpr_hitl.enc.json"
         _hitl_queue.clear()
+
+    def tearDown(self):
+        _encrypted_store.filepath = self._orig_filepath
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_evaluation_retention_purge_and_erasure(self):
         # Insert test items directly

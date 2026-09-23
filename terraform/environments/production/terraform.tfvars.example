@@ -1,0 +1,5 @@
+aws_region        = "us-east-1"
+api_image_tag     = "1.0.0"
+web_image_tag     = "1.0.0"
+api_desired_count = 3
+web_desired_count = 3

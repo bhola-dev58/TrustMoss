@@ -155,11 +155,13 @@ class TestEvaluationServiceEncryptionIntegration(unittest.TestCase):
         self.client = TestClient(eval_app)
         self.temp_dir = tempfile.mkdtemp()
         self.store_file = Path(self.temp_dir) / "eval_hitl.enc.json"
+        self._orig_filepath = _encrypted_store.filepath
         # Temporarily redirect store to isolated temp file
         _encrypted_store.filepath = self.store_file
         _hitl_queue.clear()
 
     def tearDown(self):
+        _encrypted_store.filepath = self._orig_filepath
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_evaluate_fail_persists_encrypted_record_at_rest(self):

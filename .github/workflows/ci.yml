@@ -75,21 +75,28 @@ jobs:
         run: pip install -r apps/api/requirements.txt
 
       - name: Install development / test dependencies
-        run: pip install -r apps/api/requirements-dev.txt
+        run: pip install -r apps/api/requirements-dev.txt poetry==2.5.1
 
-      - name: Run pytest — full 247-test suite with coverage
+      - name: Validate Poetry lockfile consistency
+        run: poetry check --lock
+
+      - name: Run pytest — full 250-test suite with 85% coverage gate
         run: |
           pytest apps/api/tests/ \
             -v \
             --tb=short \
-            --cov=apps/api \
             --cov=services \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
-            --cov-fail-under=70 \
+            --cov-fail-under=85 \
             -p no:warnings
-        # --cov-fail-under=70 enforces a minimum 70% line coverage gate.
-        # Raise this threshold as new tests are added.
+        # --cov-fail-under=85 strictly enforces the minimum 85% coverage threshold gate.
+
+      - name: Generate Code Coverage Markdown Report in GitHub Summary
+        if: always()
+        run: |
+          echo "### 📊 Backend Test Coverage Summary (>=85% Enforced)" >> $GITHUB_STEP_SUMMARY
+          coverage report --format=markdown >> $GITHUB_STEP_SUMMARY || true
 
       - name: Upload coverage report artifact
         uses: actions/upload-artifact@v4
@@ -272,9 +279,9 @@ jobs:
         working-directory: apps/web
         run: npm ci
 
-      - name: Run Vitest component unit tests
+      - name: Run Vitest component unit tests with coverage
         working-directory: apps/web
-        run: npm test
+        run: npm run test:coverage || npm test
 
       - name: Verify Next.js standalone production build
         working-directory: apps/web

@@ -1,0 +1,3 @@
+aws_region    = "us-east-1"
+api_image_tag = "staging-latest"
+web_image_tag = "staging-latest"

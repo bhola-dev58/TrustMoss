@@ -69,6 +69,7 @@ pip-audit-report.json
 dump.rdb
 redis.log
 postgres-data/
+*.enc.json
 migrations/__pycache__/
 
 # Secrets & Security Tokens

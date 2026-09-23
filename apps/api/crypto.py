@@ -259,6 +259,7 @@ class EncryptedStore:
             "records": encrypted_items,
         }
 
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
         temp_file = self.filepath.with_suffix(".tmp")
         with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

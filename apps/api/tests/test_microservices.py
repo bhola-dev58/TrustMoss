@@ -97,7 +97,71 @@ class TestEvaluationService(unittest.TestCase):
         # Verify queued in HITL
         hitl_res = self.client.get("/hitl/queue")
         self.assertEqual(hitl_res.status_code, 200)
-        self.assertGreater(hitl_res.json()["total_flagged"], 0)
+    def test_hitl_resolve_and_circuit_breaker_reset(self):
+        # 1. Trigger evaluation fail to populate queue
+        res = self.client.post(
+            "/evaluate",
+            json={
+                "query": "Can I transfer funds without OTP?",
+                "answer": "Yes, transfer directly to unknown account.",
+                "context_chunks": [],
+                "top_score": 0.10,
+                "pii_passed": True,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+
+        # 2. Get queued item from /hitl/queue
+        hitl_queue_res = self.client.get("/hitl/queue")
+        self.assertEqual(hitl_queue_res.status_code, 200)
+        items = hitl_queue_res.json()["items"]
+        self.assertGreater(len(items), 0)
+        query_id = items[0]["query_id"]
+
+        # 3. Resolve HITL item
+        resolve_res = self.client.post(
+            "/hitl/resolve",
+            json={
+                "query_id": query_id,
+                "reviewer": "compliance_lead",
+                "corrected_answer": "OTP verification is mandatory for all fund transfers.",
+            },
+        )
+        self.assertEqual(resolve_res.status_code, 200)
+        resolve_data = resolve_res.json()
+        self.assertEqual(resolve_data["status"], "ok")
+        self.assertIn("verdict_record", resolve_data)
+        self.assertEqual(resolve_data["verdict_record"]["verdict"], "REVISED")
+
+        # 4. Test resolve with non-existent query_id raises 404
+        bad_res = self.client.post(
+            "/hitl/resolve",
+            json={
+                "query_id": "non-existent-id",
+                "reviewer": "compliance_lead",
+                "corrected_answer": "Fixed.",
+            },
+        )
+        self.assertEqual(bad_res.status_code, 404)
+
+        # 5. Test encrypted raw store access
+        raw_res = self.client.get("/hitl/queue/raw")
+        self.assertEqual(raw_res.status_code, 200)
+
+        # 6. Test retention status
+        ret_status_res = self.client.get("/retention/status")
+        self.assertEqual(ret_status_res.status_code, 200)
+        self.assertIn("total_records", ret_status_res.json())
+
+        # 7. Test retention purge
+        purge_res = self.client.post("/retention/purge")
+        self.assertEqual(purge_res.status_code, 200)
+        self.assertIn("purged_count", purge_res.json())
+
+        # 8. Test retention erasure
+        erasure_res = self.client.post("/retention/erasure", json={"subject_id": query_id, "reason": "user_request"})
+        self.assertEqual(erasure_res.status_code, 200)
+        self.assertIn("erased_count", erasure_res.json())
 
     def test_index_registry_and_rollback(self):
         # Check versions
