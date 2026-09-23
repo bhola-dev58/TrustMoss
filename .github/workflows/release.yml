@@ -340,7 +340,7 @@ jobs:
 
       - name: Create GitHub Release (tagged — versioned release)
         if: needs.release-metadata.outputs.is_tagged_release == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: "TrustMoss ${{ github.ref_name }}"
@@ -353,7 +353,7 @@ jobs:
 
       - name: Create GitHub Release (main push — rolling edge release)
         if: needs.release-metadata.outputs.is_tagged_release == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "edge"
           name: "TrustMoss Edge (latest main)"
