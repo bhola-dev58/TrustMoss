@@ -7,7 +7,7 @@
 
 # ── Test Runner ───────────────────────────────────────────────────────────────
 pytest>=9.1.1
-pytest-cov>=6.0.0
+pytest-cov>=7.1.0
 pytest-asyncio>=0.24.0
 httpx==0.27.2          # FastAPI TestClient transport (already in requirements.txt — pinned here for dev)
 
